@@ -7,11 +7,15 @@
     set: function (k, v, session) { try { (session ? sessionStorage : localStorage).setItem(k, v); } catch (e) {} },
     del: function (k) { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) {} }
   };
-  var K_TEACHER = 'pd_teacher_token', K_ADMIN = 'pd_admin_token', K_PHONE = 'pd_phone';
+  var K_TEACHER = 'pd_teacher_token', K_ADMIN = 'pd_admin_token', K_PHONE = 'pd_phone', K_DATA = 'pd_data';
+  var adminSession = !!store.get(K_ADMIN, true);
 
   var S = {
     token: store.get(K_ADMIN, true) || store.get(K_TEACHER) || '',
     data: null,
+    queue: [],        // 等待送到伺服器的動作（依序送）
+    base: null,       // 第一筆待送動作之前的資料，失敗時還原用
+    syncing: false,
     tTab: '待回覆',
     nav: '派案',
     filter: '待回覆',
@@ -38,24 +42,75 @@
   }
   function busy(on) { document.getElementById('busy').className = on ? 'busy' : 'busy hidden'; }
 
-  function api(action, payload) {
+  // quiet：背景呼叫，不擋畫面、不跳錯誤
+  function api(action, payload, quiet) {
     var body = Object.assign({ action: action, token: S.token }, payload || {});
-    busy(true);
+    if (!quiet) busy(true);
     return fetch(window.CONFIG.API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(body)
     }).then(function (r) { return r.json(); })
-      .catch(function () { return { ok: false, error: '連線失敗，請確認網路後再試' }; })
+      .catch(function () { return { ok: false, error: '連線失敗，請確認網路後再試', net: true }; })
       .then(function (res) {
-        busy(false);
+        if (!quiet) busy(false);
         if (!res.ok) {
           if (res.code === 'AUTH') { logoutLocal(); toast(res.error, true); return Promise.reject(res); }
-          toast(res.error, true);
+          if (!quiet) toast(res.error, true);
           return Promise.reject(res);
         }
         return res.data;
       });
+  }
+
+  // ===== 資料與背景同步 =====
+  function setData(d) {
+    S.data = d;
+    store.set(K_DATA, JSON.stringify(d), adminSession);
+  }
+  function nowStr() {
+    var d = new Date(Date.now() + 8 * 3600000);
+    return d.toISOString().slice(0, 19).replace('T', ' ');
+  }
+  function syncBadge() {
+    var el = document.getElementById('sync');
+    if (!el) return;
+    if (S.queue.length) { el.textContent = '儲存中…'; el.className = 'sync'; }
+    else { el.textContent = '已儲存'; el.className = 'sync done'; clearTimeout(syncBadge._t); syncBadge._t = setTimeout(function () { el.className = 'sync hidden'; }, 1200); }
+  }
+  // 使用者正在輸入時不重畫，免得游標跑掉
+  function safeRender() {
+    var a = document.activeElement;
+    if (a && $app.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) { S.dirty = true; return; }
+    render();
+  }
+  function pump() {
+    if (S.syncing || !S.queue.length) return;
+    S.syncing = true;
+    var job = S.queue[0];
+    api(job.action, job.payload, true).then(function (d) {
+      S.queue.shift();
+      S.syncing = false;
+      if (!S.queue.length) { S.base = null; setData(d); safeRender(); }
+      syncBadge();
+      pump();
+    }, function (err) {
+      S.syncing = false;
+      if (err && err.code === 'AUTH') { S.queue = []; return; }
+      // 失敗：還原到送出前，再向伺服器拿最新資料
+      S.queue = [];
+      if (S.base) { S.data = S.base; S.base = null; }
+      closeModal(); render(); syncBadge();
+      toast((err && err.error ? err.error : '儲存失敗') + '，畫面已還原', true);
+      refresh();
+    });
+  }
+  function refresh() {
+    if (!S.token || S.queue.length) return Promise.resolve();
+    return api('bootstrap', null, true).then(function (d) {
+      if (S.queue.length) return;
+      setData(d); safeRender();
+    }, function () {});
   }
 
   function ymd(s) { var p = s.split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
@@ -74,12 +129,12 @@
 
   function isAdmin() { return S.data && S.data.user.role === '管理者'; }
   function rules() { return S.data.rules; }
-  function today() { return S.data.today; }
+  function today() { return nowStr().slice(0, 10); }   // 台灣時間的今天
 
   // ===== 登入 =====
   function logoutLocal() {
-    store.del(K_TEACHER); store.del(K_ADMIN);
-    S.token = ''; S.data = null;
+    store.del(K_TEACHER); store.del(K_ADMIN); store.del(K_DATA);
+    S.token = ''; S.data = null; S.queue = []; S.base = null;
     renderLogin();
   }
 
@@ -101,28 +156,123 @@
       api('login', { phone: lp.value, pin: lpin.value }).then(function (d) {
         S.token = d.token;
         store.set(K_PHONE, d.user.phone);
-        if (d.user.role === '管理者') { store.set(K_ADMIN, d.token, true); store.del(K_TEACHER); }
+        adminSession = d.user.role === '管理者';
+        if (adminSession) { store.set(K_ADMIN, d.token, true); store.del(K_TEACHER); }
         else store.set(K_TEACHER, d.token);
         S.filter = '待回覆'; S.tTab = '待回覆';
-        load();
+        setData(d.data); render();
       }).catch(function () { lpin.value = ''; lpin.focus(); });
     });
   }
 
-  function load() {
-    return api('bootstrap').then(function (d) { S.data = d; render(); });
+  // ===== 各動作在畫面上的立即結果（與後端規則相同，後端回來後以後端為準） =====
+  function cById(d, id) { return d.cases.filter(function (c) { return c.id === id; })[0]; }
+  function voidPend(d, caseId) {
+    d.changes.forEach(function (h) { if (h.caseId === caseId && h.status === '待審') { h.status = '作廢'; h.reviewedAt = nowStr(); } });
   }
-  function act(action, payload, okMsg) {
-    return api(action, payload).then(function (d) {
-      S.data = d; closeModal(); render();
-      if (okMsg) toast(okMsg);
-      return d;
-    });
+  function setFirst(d, c, date, reason) {
+    var n = diff(c.dispatchDate, date);
+    c.firstDate = date; c.day = String(n);
+    c.overReason = n > d.rules.normal ? reason : '';
+    c.updatedAt = nowStr();
+  }
+  var LOCAL = {
+    reply: function (d, p) { var c = cById(d, p.caseId); setFirst(d, c, p.date, p.reason); c.status = '待服務'; c.repliedAt = nowStr(); },
+    complete: function (d, p) { var c = cById(d, p.caseId); c.status = '已完成'; c.doneAt = c.updatedAt = nowStr(); },
+    cannotServe: function (d, p) {
+      var c = cById(d, p.caseId); voidPend(d, c.id);
+      c.status = '無法服務'; c.cannotReason = p.reason; c.cannotAt = c.updatedAt = nowStr();
+    },
+    requestChange: function (d, p) {
+      var c = cById(d, p.caseId);
+      d.changes.push({ id: 'tmp-' + Date.now(), caseId: c.id, teacherId: c.teacherId, teacherName: c.teacherName,
+        oldDate: c.firstDate, oldDay: c.day, newDate: p.date, newDay: String(diff(c.dispatchDate, p.date)),
+        reason: p.reason, requestedAt: nowStr(), status: '待審' });
+    },
+    cancelChange: function (d, p) {
+      d.changes.forEach(function (h) { if (h.caseId === p.caseId && h.status === '待審') { h.status = '作廢'; h.comment = '老師撤回'; h.reviewedAt = nowStr(); } });
+    },
+    reviewChange: function (d, p) {
+      var h = d.changes.filter(function (x) { return x.id === p.changeId; })[0];
+      var c = cById(d, h.caseId);
+      h.reviewer = d.user.name; h.reviewedAt = nowStr(); h.comment = p.comment || '';
+      if (p.approve) {
+        h.status = '核准'; setFirst(d, c, h.newDate, h.reason);
+        if (c.notified === 'Y') { c.notified = ''; c.notifiedAt = ''; c.notifiedBy = ''; }
+      } else h.status = '駁回';
+    },
+    reassign: function (d, p) {
+      var c = cById(d, p.caseId), t = d.users.filter(function (u) { return u.id === p.teacherId; })[0];
+      voidPend(d, c.id);
+      c.teacherId = t.id; c.teacherName = t.name; c.status = '待回覆';
+      c.firstDate = c.day = c.overReason = c.repliedAt = c.cannotReason = c.cannotAt = '';
+      c.notified = c.notifiedAt = c.notifiedBy = '';
+      c.reassignCount = String(Number(c.reassignCount || 0) + 1); c.updatedAt = nowStr();
+    },
+    cancelCase: function (d, p) { var c = cById(d, p.caseId); voidPend(d, c.id); c.status = '已取消'; c.cancelReason = p.reason; c.updatedAt = nowStr(); },
+    markNotified: function (d, p) {
+      var c = cById(d, p.caseId);
+      if (p.value) { c.notified = 'Y'; c.notifiedAt = nowStr(); c.notifiedBy = d.user.name; }
+      else { c.notified = c.notifiedAt = c.notifiedBy = ''; }
+    },
+    updateCase: function (d, p) {
+      var c = cById(d, p.caseId);
+      Object.keys(p.fields).forEach(function (k) { if (k !== 'dispatchDate' || c.status === '待回覆') c[k] = p.fields[k]; });
+      c.updatedAt = nowStr();
+    },
+    createCase: function (d, p) {
+      var f = p.fields, t = d.users.filter(function (u) { return u.id === f.teacherId; })[0];
+      d.cases.push({ id: 'tmp-' + Date.now(), caseNo: f.caseNo, caseName: f.caseName, service: f.service, region: f.region,
+        dispatchDate: f.dispatchDate, teacherId: t.id, teacherName: t.name, note: f.note, status: '待回覆', reassignCount: '0',
+        firstDate: '', day: '', createdAt: nowStr(), updatedAt: nowStr() });
+    },
+    updateUser: function (d, p) {
+      var u = d.users.filter(function (x) { return x.id === p.id; })[0];
+      u.name = p.name.trim(); u.phone = p.phone.replace(/\D/g, ''); u.role = p.role; u.active = !!p.active;
+    },
+    saveOptions: function (d, p) {
+      var seen = {};
+      d.options[p.category] = p.values.map(function (v) { return v.trim(); }).filter(function (v) { if (!v || seen[v]) return false; seen[v] = 1; return true; });
+    }
+  };
+
+  // 開啟時：有上次的資料就先顯示，再到背景更新
+  function start() {
+    var cached = null;
+    try { cached = JSON.parse(store.get(K_DATA, adminSession) || 'null'); } catch (e) {}
+    if (cached && cached.user) {
+      S.data = cached; render();
+      refresh();
+      return;
+    }
+    api('bootstrap').then(function (d) { setData(d); render(); }, function () { if (!S.data) renderLogin(); });
+  }
+
+  // local：在畫面上先套用結果的函式。有它就立即反應、背景送出；沒有就等伺服器（例如要拿 PIN）
+  function act(action, payload, okMsg, local) {
+    if (!local) {
+      return api(action, payload).then(function (d) {
+        setData(d); closeModal(); render();
+        if (okMsg) toast(okMsg);
+        return d;
+      });
+    }
+    if (!S.queue.length) S.base = JSON.parse(JSON.stringify(S.data));
+    if (local === true) local = function (d) { LOCAL[action](d, payload); };
+    local(S.data);
+    store.set(K_DATA, JSON.stringify(S.data), adminSession);
+    closeModal(); render();
+    if (okMsg) toast(okMsg);
+    S.queue.push({ action: action, payload: payload });
+    syncBadge();
+    pump();
+    return Promise.resolve(S.data);
   }
 
   function render() {
     $who.innerHTML = esc(S.data.user.name) + '<span class="role">' + esc(S.data.user.role) + '</span><button id="logout">登出</button>';
     document.getElementById('logout').onclick = function () {
+      if (S.queue.length) return toast('資料還在儲存中，請稍候再登出', true);
       if (!confirm('確定要登出？下次需要重新輸入手機與 PIN。')) return;
       api('logout').catch(function () {}).then(logoutLocal);
     };
@@ -264,8 +414,8 @@
     reason.addEventListener('input', check);
     send.onclick = function () {
       var payload = { caseId: c.id, date: picked.date, reason: reason.value.trim() };
-      if (mode === 'change') act('requestChange', payload, '已送出異動申請，等待管理者核准');
-      else act('reply', payload, '已回覆首次服務日');
+      if (mode === 'change') act('requestChange', payload, '已送出異動申請，等待管理者核准', true);
+      else act('reply', payload, '已回覆首次服務日', true);
     };
   }
 
@@ -432,11 +582,12 @@
       if (!fields.service) return toast('請選擇服務項目', true);
       if (c) {
         if (c.status !== '待回覆') delete fields.dispatchDate;
-        act('updateCase', { caseId: c.id, fields: fields }, '已儲存');
+        act('updateCase', { caseId: c.id, fields: fields }, '已儲存', true);
       } else {
         fields.teacherId = v('fT');
         if (!fields.teacherId) return toast('請選擇指派老師', true);
-        act('createCase', { fields: fields }, '已建立派案').then(function () { S.nav = '派案'; S.filter = '待回覆'; render(); });
+        S.nav = '派案'; S.filter = '待回覆';
+        act('createCase', { fields: fields }, '已建立派案', true);
       }
     };
   }
@@ -490,6 +641,7 @@
     var b = t.closest('[data-a]');
     if (!b || b.disabled) return;
     var a = b.getAttribute('data-a'), id = b.getAttribute('data-id');
+    if (id && id.indexOf('tmp-') === 0) return toast('這筆剛建立，還在儲存，請稍候', true);
     var c = id ? findCase(id) : null;
 
     switch (a) {
@@ -497,22 +649,22 @@
       case 'change': datePicker(c, 'change'); break;
       case 'cannot':
         reasonDialog('無法服務', esc(c.caseName) + '．送出後會退回給管理者改派', '原因（必填）', function (r) {
-          act('cannotServe', { caseId: c.id, reason: r }, '已回報無法服務');
+          act('cannotServe', { caseId: c.id, reason: r }, '已回報無法服務', true);
         }, true); break;
       case 'complete':
-        if (confirm('確認「' + c.caseName + '」已在 ' + full(c.firstDate) + ' 完成第一次服務？')) act('complete', { caseId: c.id }, '已回報完成');
+        if (confirm('確認「' + c.caseName + '」已在 ' + full(c.firstDate) + ' 完成第一次服務？')) act('complete', { caseId: c.id }, '已回報完成', true);
         break;
       case 'cancelChange':
-        if (confirm('確定撤回這筆異動申請？')) act('cancelChange', { caseId: c.id }, '已撤回');
+        if (confirm('確定撤回這筆異動申請？')) act('cancelChange', { caseId: c.id }, '已撤回', true);
         break;
       case 'approve':
         var p = pendingOf(c);
-        if (confirm('核准改為 ' + full(p.newDate) + '（第 ' + p.newDay + ' 天）？')) act('reviewChange', { changeId: p.id, approve: true }, '已核准');
+        if (confirm('核准改為 ' + full(p.newDate) + '（第 ' + p.newDay + ' 天）？')) act('reviewChange', { changeId: p.id, approve: true }, '已核准', true);
         break;
       case 'reject':
         var p2 = pendingOf(c);
         reasonDialog('駁回異動申請', '原時間 ' + full(p2.oldDate) + ' 維持不變', '駁回原因（老師會看到）', function (r) {
-          act('reviewChange', { changeId: p2.id, approve: false, comment: r }, '已駁回');
+          act('reviewChange', { changeId: p2.id, approve: false, comment: r }, '已駁回', true);
         }, true); break;
       case 'reassign':
         var tl = teachers().filter(function (x) { return x.id !== c.teacherId || c.status === '無法服務'; }).map(function (x) { return { value: x.id, text: x.name }; });
@@ -522,19 +674,19 @@
         document.getElementById('rtOk').onclick = function () {
           var v = document.getElementById('rt').value;
           if (!v) return toast('請選擇老師', true);
-          act('reassign', { caseId: c.id, teacherId: v }, '已改派');
+          act('reassign', { caseId: c.id, teacherId: v }, '已改派', true);
         };
         break;
       case 'edit':
         openModal(caseForm(c)); bindCaseForm(c); break;
       case 'cancel':
         reasonDialog('取消派案', esc(c.caseName) + '．取消後老師就看不到這筆派案', '取消原因（必填）', function (r) {
-          act('cancelCase', { caseId: c.id, reason: r }, '已取消派案');
+          act('cancelCase', { caseId: c.id, reason: r }, '已取消派案', true);
         }, true); break;
       case 'notify':
         e.preventDefault();
         var val = !(c.notified === 'Y');
-        act('markNotified', { caseId: c.id, value: val }, val ? '已標記為已通報' : '已取消標記');
+        act('markNotified', { caseId: c.id, value: val }, val ? '已標記為已通報' : '已取消標記', true);
         break;
       case 'copy':
         var txt = [c.caseNo, c.caseName, c.service, '派案日 ' + c.dispatchDate, '首次服務日 ' + c.firstDate + '（第' + c.day + '天）', '原因：' + c.overReason].join('\t');
@@ -555,7 +707,7 @@
           '<div class="foot"><button class="btn" data-close>取消</button><button class="btn primary" id="eOk">儲存</button></div>');
         document.getElementById('eOk').onclick = function () {
           act('updateUser', { id: u.id, name: document.getElementById('eName').value, phone: document.getElementById('ePhone').value,
-            role: document.getElementById('eRole').value, active: document.getElementById('eAct').checked }, '已儲存');
+            role: document.getElementById('eRole').value, active: document.getElementById('eAct').checked }, '已儲存', true);
         };
         break;
       case 'resetPin':
@@ -567,7 +719,7 @@
       case 'saveOpt':
         var cat = b.getAttribute('data-cat');
         var ta = document.querySelector('textarea[data-cat="' + cat + '"]');
-        act('saveOptions', { category: cat, values: ta.value.split('\n') }, '已儲存' + cat);
+        act('saveOptions', { category: cat, values: ta.value.split('\n') }, '已儲存' + cat, true);
         break;
     }
   });
@@ -587,8 +739,12 @@
   if (!window.CONFIG || /請貼上/.test(window.CONFIG.API_URL)) {
     $app.innerHTML = '<div class="center">尚未設定後端網址，請編輯 config.js</div>';
   } else if (S.token) {
-    load().catch(function () { if (!S.data) renderLogin(); });
+    start();
   } else {
     renderLogin();
   }
+  // 回到畫面時自動更新（看到別人的異動）
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && S.data) refresh(); });
+  document.addEventListener('focusout', function () { setTimeout(function () { if (S.dirty) { S.dirty = false; safeRender(); } }, 0); });
+  window.addEventListener('beforeunload', function (e) { if (S.queue.length) { e.preventDefault(); e.returnValue = ''; } });
 })();
