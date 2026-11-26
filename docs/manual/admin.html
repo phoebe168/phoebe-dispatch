@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#01513c">
+<title>phoebe 派案追蹤 管理者操作手冊</title>
+<link rel="icon" href="../icon-192.png">
+<style>
+:root { --g:#01513c; --gd:#013d2d; --gl:#e2eee8; --b:#723e27; --bl:#f3e9e3; --bg:#f5f6f3; --line:#dde3df; --text:#1f2d36; --muted:#6b7c87; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; scroll-padding-top:80px; }
+body { margin:0; background:var(--bg); color:var(--text); font:17px/1.75 -apple-system,"PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif; }
+a { color:var(--g); }
+header { position:sticky; top:0; z-index:10; background:#fff; border-bottom:3px solid var(--g); display:flex; align-items:center; gap:12px; padding:8px 16px; }
+header img { height:46px; }
+header .t { font-weight:700; color:var(--g); border-left:1px solid var(--line); padding-left:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+header .back { margin-left:auto; white-space:nowrap; font-size:14px; border:1px solid var(--g); border-radius:6px; padding:3px 10px; text-decoration:none; }
+.wrap { max-width:1180px; margin:0 auto; display:grid; grid-template-columns:240px 1fr; gap:28px; padding:20px 16px 80px; }
+nav.toc { position:sticky; top:84px; align-self:start; max-height:calc(100vh - 100px); overflow:auto; font-size:14px; }
+nav.toc summary { font-weight:700; color:var(--b); cursor:pointer; margin-bottom:6px; }
+nav.toc ul { list-style:none; margin:0; padding:0; }
+nav.toc li a { display:block; padding:4px 10px; border-radius:6px; text-decoration:none; color:var(--text); }
+nav.toc li a:hover { background:var(--gl); }
+nav.toc li.l2 > a { font-weight:700; color:var(--g); margin-top:8px; }
+nav.toc li.l3 > a { padding-left:20px; }
+main { background:#fff; border-radius:12px; padding:28px 36px; box-shadow:0 1px 3px rgba(0,0,0,.05); min-width:0; }
+h1 { color:var(--g); font-size:28px; margin:0 0 4px; }
+.updated { color:var(--muted); font-size:14px; margin-bottom:20px; }
+h2 { color:var(--g); font-size:23px; margin:44px 0 12px; padding-bottom:6px; border-bottom:2px solid var(--gl); }
+h3 { font-size:19px; margin:34px 0 10px; padding-left:10px; border-left:4px solid var(--b); }
+table { width:100%; border-collapse:collapse; margin:12px 0 18px; font-size:16px; }
+th { background:var(--bl); color:var(--b); text-align:left; padding:9px 12px; white-space:nowrap; }
+td { padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+tr:nth-child(even) td { background:#fafbf9; }
+td:first-child { font-weight:600; white-space:nowrap; }
+figure { margin:18px 0 26px; text-align:center; }
+figure img { max-width:100%; height:auto; border:1px solid var(--line); border-radius:10px; }
+figure.phone img { max-width:380px; width:100%; }
+figcaption { color:var(--muted); font-size:14px; margin-top:6px; }
+.top { position:fixed; right:16px; bottom:20px; background:var(--g); color:#fff; border-radius:50%; width:44px; height:44px; display:flex; align-items:center; justify-content:center; text-decoration:none; font-size:20px; box-shadow:0 2px 6px rgba(0,0,0,.2); }
+@media (max-width: 860px) {
+  body { font-size:16px; }
+  .wrap { grid-template-columns:1fr; padding:12px 10px 80px; gap:12px; }
+  nav.toc { position:static; max-height:none; background:#fff; border-radius:12px; padding:12px 14px; }
+  main { padding:18px 16px; }
+  header img { height:38px; }
+  table { font-size:15px; }
+  td:first-child { white-space:normal; }
+  .scroll { overflow-x:auto; }
+}
+@media print {
+  header, nav.toc, .top { display:none; }
+  .wrap { display:block; padding:0; }
+  main { box-shadow:none; padding:0; }
+  figure, table { break-inside:avoid; }
+}
+</style>
+</head>
+<body id="top">
+<header><img src="../logo.png" alt="phoebe 營養諮詢中心"><span class="t">管理者操作手冊</span><a class="back" href="../">回到派案系統</a></header>
+<div class="wrap">
+<nav class="toc"><details open><summary>目錄</summary><ul><li class="l2"><a href="#s1">開始之前</a></li><li class="l2"><a href="#s2">第一部分　快速指引</a></li><li class="l2"><a href="#s3">第二部分　完整說明</a></li><li class="l3"><a href="#s4">1. 登入</a></li><li class="l3"><a href="#s5">2. 畫面總覽</a></li><li class="l3"><a href="#s6">3. 建立派案</a></li><li class="l3"><a href="#s7">4. 審核改時間申請</a></li><li class="l3"><a href="#s8">5. 改派</a></li><li class="l3"><a href="#s9">6. 逾期與未回覆的提醒</a></li><li class="l3"><a href="#s10">7. 修改與取消派案</a></li><li class="l3"><a href="#s11">8. 異動通報</a></li><li class="l3"><a href="#s12">9. 搜尋派案</a></li><li class="l3"><a href="#s13">10. 帳號管理</a></li><li class="l3"><a href="#s14">11. 選項</a></li><li class="l3"><a href="#s15">12. 用手機操作</a></li><li class="l3"><a href="#s16">13. 常見問題</a></li></ul></details></nav>
+<main>
+<h1>phoebe 派案追蹤 管理者操作手冊</h1>
+<div class="updated">更新日期：2026/11/26</div>
+<h2 id="s1">開始之前</h2>
+<p>這本手冊給管理者使用，負責建立派案、審核老師的改時間申請、改派，以及整理異動通報資料。電腦和手機都能操作，建議用電腦，畫面比較寬，一次看得到比較多派案。</p>
+<ul>
+<li><strong>網址</strong>：https://phoebe168.github.io/phoebe-dispatch/</li>
+<li><strong>帳號</strong>：你的手機號碼</li>
+<li><strong>PIN</strong>：4 碼數字</li>
+</ul>
+<p>管理者每次打開網頁都要輸入 PIN，手機號碼會自動記住。老師只有第一次需要登入。</p>
+<p><strong>天數規則（老師與管理者共通）</strong></p>
+<ul>
+<li>派案當天算第 0 天，假日照算。</li>
+<li>第 1～7 天：正常。</li>
+<li>第 8～15 天：老師必須填原因，這筆會列入「異動通報」。</li>
+<li>超過第 15 天：老師沒有日期可選，只能回報「無法服務」。</li>
+<li>改派之後，天數仍從原派案日起算。</li>
+</ul>
+<h2 id="s2">第一部分　快速指引</h2>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>功能</th>
+<th>步驟</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>登入</td>
+<td>開啟網址 → 輸入 PIN → 登入</td>
+</tr>
+<tr>
+<td>建立派案</td>
+<td>建立派案 → 填個案編號、姓名 → 選服務項目、區域、派案日期、老師 → 建立派案</td>
+</tr>
+<tr>
+<td>查看進度</td>
+<td>派案 → 點分類（待回覆、待服務、異動待審…）</td>
+</tr>
+<tr>
+<td>搜尋個案</td>
+<td>派案 → 全部 → 搜尋框輸入姓名、編號或老師</td>
+</tr>
+<tr>
+<td>核准改時間</td>
+<td>異動待審 → 核准 → 確定</td>
+</tr>
+<tr>
+<td>駁回改時間</td>
+<td>異動待審 → 駁回 → 填原因 → 確定</td>
+</tr>
+<tr>
+<td>改派</td>
+<td>待改派 → 改派 → 選老師 → 確定改派</td>
+</tr>
+<tr>
+<td>代為回報完成</td>
+<td>逾期未回報 → 代為回報完成 → 確定</td>
+</tr>
+<tr>
+<td>修改派案</td>
+<td>派案卡片 → 修改 → 改資料 → 儲存</td>
+</tr>
+<tr>
+<td>取消派案</td>
+<td>派案卡片 → 取消派案 → 填原因 → 確定</td>
+</tr>
+<tr>
+<td>異動通報</td>
+<td>異動通報 → 複製通報資料 → 到照管系統通報 → 勾「已完成異動通報」</td>
+</tr>
+<tr>
+<td>新增帳號</td>
+<td>帳號 → 填姓名、手機、角色 → 新增並產生 PIN → 私下告知本人</td>
+</tr>
+<tr>
+<td>修改或停用帳號</td>
+<td>帳號 → 修改 → 改資料或取消勾選「啟用」 → 儲存</td>
+</tr>
+<tr>
+<td>重設 PIN</td>
+<td>帳號 → 重設 PIN → 確定 → 私下告知新 PIN</td>
+</tr>
+<tr>
+<td>維護下拉選項</td>
+<td>選項 → 一行一個 → 儲存</td>
+</tr>
+<tr>
+<td>登出</td>
+<td>右上角登出 → 確定</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="s3">第二部分　完整說明</h2>
+<p>圖中的紅框是要按的地方，左上角的綠色數字是操作順序。圖中的個案與老師都是示範資料。</p>
+<h3 id="s4">1. 登入</h3>
+<ol>
+<li>打開網址，手機號碼會自動帶入（第一次要自己輸入）。</li>
+<li>輸入 4 碼 PIN。</li>
+<li>按「登入」。</li>
+</ol>
+<p>關掉瀏覽器分頁後，下次打開要再輸入一次 PIN，這是為了保護管理者權限。PIN 連續錯 5 次會鎖定 15 分鐘。</p>
+<figure><img loading="lazy" alt="管理者登入畫面" src="img/a01.webp" /><figcaption>圖 1　管理者登入畫面</figcaption></figure>
+<h3 id="s5">2. 畫面總覽</h3>
+<p>登入後上方有四個功能：派案、建立派案、帳號、選項。「派案」下面有八個分類，紅色數字代表還有幾筆待處理。</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>分類</th>
+<th>內容</th>
+<th>你要做什麼</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>待回覆</td>
+<td>老師還沒回覆第一次服務日</td>
+<td>橘框是已過 7 天，紅框是已過 15 天，請聯絡老師</td>
+</tr>
+<tr>
+<td>待服務</td>
+<td>老師已回覆日期，等待第一次服務</td>
+<td>不用處理</td>
+</tr>
+<tr>
+<td>異動待審</td>
+<td>老師申請改時間</td>
+<td>核准或駁回</td>
+</tr>
+<tr>
+<td>待改派</td>
+<td>老師回報無法服務</td>
+<td>改派給其他老師</td>
+</tr>
+<tr>
+<td>逾期未回報</td>
+<td>服務日已過，老師還沒按完成</td>
+<td>聯絡老師確認，必要時代為回報完成</td>
+</tr>
+<tr>
+<td>異動通報</td>
+<td>首次服務落在第 8～15 天</td>
+<td>到照管系統通報，完成後打勾</td>
+</tr>
+<tr>
+<td>已完成</td>
+<td>已完成第一次服務</td>
+<td>不用處理</td>
+</tr>
+<tr>
+<td>全部</td>
+<td>所有派案，包含已取消</td>
+<td>用來搜尋</td>
+</tr>
+</tbody>
+</table></div>
+<p>卡片左邊的顏色：橘色是需要留意（超過 7 天），紅色是需要馬上處理，綠色是正常或已完成。</p>
+<p>每次操作後，右上角會出現「儲存中…」，變成「已儲存」就代表資料存好了。存好之前請不要關閉網頁。</p>
+<figure><img loading="lazy" alt="上方功能與派案分類" src="img/a02.webp" /><figcaption>圖 2　上方功能與派案分類</figcaption></figure>
+<h3 id="s6">3. 建立派案</h3>
+<ol>
+<li>點上方「建立派案」。</li>
+<li>填個案編號、個案姓名。</li>
+<li>從下拉選單選服務項目、區域。</li>
+<li>確認派案日期，預設是今天。照管中心前幾天派的案子，要改成實際派案的那一天，天數從這個日期開始算。</li>
+<li>選指派老師，需要的話填備註。</li>
+<li>按「建立派案」，這筆會出現在「待回覆」，老師也馬上看得到。</li>
+</ol>
+<p>個案姓名、服務項目、派案日期、老師是必填。派案日期不能選未來的日子。</p>
+<figure><img loading="lazy" alt="建立派案" src="img/a03.webp" /><figcaption>圖 3　建立派案</figcaption></figure>
+<h3 id="s7">4. 審核改時間申請</h3>
+<p>老師申請改時間後，會出現在「異動待審」。卡片上會顯示原日期、新日期、各是第幾天，以及老師寫的原因。</p>
+<ul>
+<li><strong>核准</strong>：按「核准」→「確定」。首次服務日馬上改成新日期。新日期超過第 7 天的話，這筆會自動進入「異動通報」。</li>
+<li><strong>駁回</strong>：按「駁回」→ 填原因 →「確定」。原日期不變，老師會在自己的畫面看到駁回原因。</li>
+</ul>
+<figure><img loading="lazy" alt="審核改時間申請" src="img/a04.webp" /><figcaption>圖 4　① 核准或駁回　② 駁回時填寫原因</figcaption></figure>
+<h3 id="s8">5. 改派</h3>
+<p>老師回報「無法服務」後，這筆會出現在「待改派」，卡片上有老師寫的原因。待回覆、待服務的派案也可以直接改派。</p>
+<ol>
+<li>在卡片上按「改派」。</li>
+<li>選新的老師。</li>
+<li>按「確定改派」。</li>
+</ol>
+<p>改派後，這筆回到「待回覆」，由新老師重新回覆日期。派案日不變，天數照原派案日計算，原老師就看不到這筆了。</p>
+<figure><img loading="lazy" alt="改派" src="img/a05.webp" /><figcaption>圖 5　① 待改派的派案　② 選擇新老師</figcaption></figure>
+<h3 id="s9">6. 逾期與未回覆的提醒</h3>
+<ul>
+<li><strong>逾期未回報</strong>（紅框）：服務日已過，老師還沒按完成。先聯絡老師，確認已經服務的話，按「代為回報完成」→「確定」。如果實際上沒去服務，請老師申請改時間，或由你改派。</li>
+<li><strong>待回覆超過 7 天</strong>（橘框）：卡片會出現「已過 7 天仍未回覆」。超過 15 天會變紅框，老師已經沒有日期可選，請盡快處理。</li>
+</ul>
+<figure><img loading="lazy" alt="逾期與未回覆提醒" src="img/a06.webp" /><figcaption>圖 6　① 逾期未回報　② 待回覆已過 7 天</figcaption></figure>
+<h3 id="s10">7. 修改與取消派案</h3>
+<p><strong>修改</strong>：按卡片上的「修改」，改個案編號、姓名、服務項目、區域或備註，再按「儲存」。派案日期只有在「待回覆」時能改，老師回覆後就鎖住了。要換老師請用「改派」。</p>
+<p><strong>取消</strong>：照管中心撤回或個案不需要服務時使用。按「取消派案」→ 填原因 →「確定」。取消後老師就看不到這筆，只會出現在「全部」。已完成的派案不能取消。</p>
+<figure><img loading="lazy" alt="修改與取消派案" src="img/a07.webp" /><figcaption>圖 7　① 修改派案　② 取消派案</figcaption></figure>
+<h3 id="s11">8. 異動通報</h3>
+<p>首次服務落在第 8～15 天的派案，會自動出現在「異動通報」。紅色數字是還沒通報的筆數，沒通報的排在前面。</p>
+<ol>
+<li>點「異動通報」。</li>
+<li>在要通報的卡片上按「複製通報資料」，個案編號、姓名、服務項目、派案日、首次服務日和原因都會複製下來。</li>
+<li>到照管系統完成異動通報，需要的地方直接貼上。</li>
+<li>回到這裡，勾選「已完成異動通報」。系統會記下誰、什麼時候勾的。</li>
+</ol>
+<p>已通報的派案如果之後又核准改時間，勾選會自動取消，提醒你依新日期重新通報。勾錯了再點一次就會取消。</p>
+<figure><img loading="lazy" alt="異動通報清單" src="img/a08.webp" /><figcaption>圖 8　異動通報清單</figcaption></figure>
+<h3 id="s12">9. 搜尋派案</h3>
+<p>在任何分類的搜尋框輸入個案姓名、編號、老師姓名、服務項目或區域，清單會馬上篩選。要找舊的或已取消的派案，先點「全部」再搜尋。</p>
+<figure><img loading="lazy" alt="搜尋派案" src="img/a09.webp" /><figcaption>圖 9　在「全部」搜尋老師的所有派案</figcaption></figure>
+<h3 id="s13">10. 帳號管理</h3>
+<p><strong>新增帳號</strong></p>
+<ol>
+<li>點上方「帳號」。</li>
+<li>填姓名、手機（09 開頭 10 碼），選角色（老師或管理者）。</li>
+<li>按「新增並產生 PIN」。</li>
+<li>畫面會跳出 4 碼 PIN，<strong>只會顯示這一次</strong>，請記下來私下告訴本人，再按「我記下了」。</li>
+</ol>
+<figure><img loading="lazy" alt="新增帳號" src="img/a10.webp" /><figcaption>圖 10　① 填寫資料　② 系統產生的 PIN</figcaption></figure>
+<p><strong>修改或停用</strong>：在帳號列表按「修改」，可以改姓名、手機、角色，或取消勾選「啟用」來停用。改手機、角色或停用後，這個人要重新登入。</p>
+<ul>
+<li>老師還有進行中的派案時不能停用，請先改派。</li>
+<li>不能停用自己，也不能取消自己的管理者身分。</li>
+<li>停用的帳號不會刪除，舊派案的紀錄都還在，需要時可以再啟用。</li>
+</ul>
+<figure><img loading="lazy" alt="修改帳號" src="img/a11.webp" /><figcaption>圖 11　修改帳號</figcaption></figure>
+<p><strong>重設 PIN</strong>：老師忘記 PIN，或帳號標示「鎖定」（PIN 連續錯 5 次）時使用。按「重設 PIN」→「確定」，畫面會顯示新的 PIN。重設後，這個人原本登入的手機會被登出，要用新 PIN 重新登入。</p>
+<h3 id="s14">11. 選項</h3>
+<p>「選項」管理建立派案時的下拉選單：服務項目、區域。</p>
+<ol>
+<li>點上方「選項」。</li>
+<li>在框裡一行寫一個，順序就是下拉選單的順序。</li>
+<li>按「儲存」。</li>
+</ol>
+<p>刪掉某個選項不會影響已經建立的派案。</p>
+<figure><img loading="lazy" alt="選項" src="img/a12.webp" /><figcaption>圖 12　選項</figcaption></figure>
+<h3 id="s15">12. 用手機操作</h3>
+<p>手機版的功能和電腦版完全一樣。分類太多放不下時，用手指左右滑動分類列就能看到其他分類。</p>
+<figure class="phone"><img loading="lazy" alt="手機版管理者畫面" src="img/a13.webp" /><figcaption>圖 13　手機版管理者畫面</figcaption></figure>
+<h3 id="s16">13. 常見問題</h3>
+<ul>
+<li><strong>我忘記自己的 PIN</strong>：請另一位管理者幫你重設。只有一位管理者時，請系統維護人員在後台重設。</li>
+<li><strong>老師說登入不了</strong>：到「帳號」看有沒有「鎖定」或「停用」，再確認手機號碼對不對，必要時重設 PIN。</li>
+<li><strong>看不到老師剛剛的回覆</strong>：重新整理網頁。離開網頁再回來時，系統也會自動更新。</li>
+<li><strong>按了之後跳出紅色錯誤訊息</strong>：這次操作沒有存到，畫面已經還原。確認網路正常後再操作一次。</li>
+<li><strong>派錯老師</strong>：用「改派」，不要取消再重建，天數才不會重算。</li>
+<li><strong>派案日期填錯</strong>：老師還沒回覆前可以用「修改」更正；老師回覆後就不能改了，請聯絡系統維護人員。</li>
+</ul>
+</main>
+</div>
+<a class="top" href="#top" aria-label="回到頂端">↑</a>
+<script>
+// 手機上預設收起目錄，點了目錄項目自動收起
+if (window.matchMedia('(max-width: 860px)').matches) {
+  var d = document.querySelector('nav.toc details'); d.removeAttribute('open');
+  document.querySelectorAll('nav.toc a').forEach(function (a) { a.addEventListener('click', function () { d.removeAttribute('open'); }); });
+}
+</script>
+</body>
+</html>

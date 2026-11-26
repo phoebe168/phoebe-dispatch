@@ -148,6 +148,7 @@
       '<label for="lp">手機號碼</label><input id="lp" type="tel" inputmode="numeric" placeholder="09xxxxxxxx" value="' + esc(phone) + '">' +
       '<label for="lpin">PIN</label><input id="lpin" class="pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••">' +
       '<button class="btn primary block" type="submit">登入</button>' +
+      '<p class="small muted" style="text-align:center;margin:16px 0 0">操作說明：<a href="manual/teacher.html" target="_blank" rel="noopener">老師版</a>　<a href="manual/admin.html" target="_blank" rel="noopener">管理者版</a></p>' +
       '</form>';
     var lp = document.getElementById('lp'), lpin = document.getElementById('lpin');
     (phone ? lpin : lp).focus();
@@ -270,7 +271,9 @@
   }
 
   function render() {
-    $who.innerHTML = esc(S.data.user.name) + '<span class="role">' + esc(S.data.user.role) + '</span><button id="logout">登出</button>';
+    var manual = isAdmin() ? 'manual/admin.html' : 'manual/teacher.html';
+    $who.innerHTML = '<span class="uname">' + esc(S.data.user.name) + '</span><span class="role">' + esc(S.data.user.role) + '</span>' +
+      '<a class="help" href="' + manual + '" target="_blank" rel="noopener">說明</a><button id="logout">登出</button>';
     document.getElementById('logout').onclick = function () {
       if (S.queue.length) return toast('資料還在儲存中，請稍候再登出', true);
       if (!confirm('確定要登出？下次需要重新輸入手機與 PIN。')) return;

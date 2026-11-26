@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#01513c">
+<title>phoebe 派案追蹤 老師操作手冊</title>
+<link rel="icon" href="../icon-192.png">
+<style>
+:root { --g:#01513c; --gd:#013d2d; --gl:#e2eee8; --b:#723e27; --bl:#f3e9e3; --bg:#f5f6f3; --line:#dde3df; --text:#1f2d36; --muted:#6b7c87; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; scroll-padding-top:80px; }
+body { margin:0; background:var(--bg); color:var(--text); font:17px/1.75 -apple-system,"PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif; }
+a { color:var(--g); }
+header { position:sticky; top:0; z-index:10; background:#fff; border-bottom:3px solid var(--g); display:flex; align-items:center; gap:12px; padding:8px 16px; }
+header img { height:46px; }
+header .t { font-weight:700; color:var(--g); border-left:1px solid var(--line); padding-left:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+header .back { margin-left:auto; white-space:nowrap; font-size:14px; border:1px solid var(--g); border-radius:6px; padding:3px 10px; text-decoration:none; }
+.wrap { max-width:1180px; margin:0 auto; display:grid; grid-template-columns:240px 1fr; gap:28px; padding:20px 16px 80px; }
+nav.toc { position:sticky; top:84px; align-self:start; max-height:calc(100vh - 100px); overflow:auto; font-size:14px; }
+nav.toc summary { font-weight:700; color:var(--b); cursor:pointer; margin-bottom:6px; }
+nav.toc ul { list-style:none; margin:0; padding:0; }
+nav.toc li a { display:block; padding:4px 10px; border-radius:6px; text-decoration:none; color:var(--text); }
+nav.toc li a:hover { background:var(--gl); }
+nav.toc li.l2 > a { font-weight:700; color:var(--g); margin-top:8px; }
+nav.toc li.l3 > a { padding-left:20px; }
+main { background:#fff; border-radius:12px; padding:28px 36px; box-shadow:0 1px 3px rgba(0,0,0,.05); min-width:0; }
+h1 { color:var(--g); font-size:28px; margin:0 0 4px; }
+.updated { color:var(--muted); font-size:14px; margin-bottom:20px; }
+h2 { color:var(--g); font-size:23px; margin:44px 0 12px; padding-bottom:6px; border-bottom:2px solid var(--gl); }
+h3 { font-size:19px; margin:34px 0 10px; padding-left:10px; border-left:4px solid var(--b); }
+table { width:100%; border-collapse:collapse; margin:12px 0 18px; font-size:16px; }
+th { background:var(--bl); color:var(--b); text-align:left; padding:9px 12px; white-space:nowrap; }
+td { padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+tr:nth-child(even) td { background:#fafbf9; }
+td:first-child { font-weight:600; white-space:nowrap; }
+figure { margin:18px 0 26px; text-align:center; }
+figure img { max-width:100%; height:auto; border:1px solid var(--line); border-radius:10px; }
+figure.phone img { max-width:380px; width:100%; }
+figcaption { color:var(--muted); font-size:14px; margin-top:6px; }
+.top { position:fixed; right:16px; bottom:20px; background:var(--g); color:#fff; border-radius:50%; width:44px; height:44px; display:flex; align-items:center; justify-content:center; text-decoration:none; font-size:20px; box-shadow:0 2px 6px rgba(0,0,0,.2); }
+@media (max-width: 860px) {
+  body { font-size:16px; }
+  .wrap { grid-template-columns:1fr; padding:12px 10px 80px; gap:12px; }
+  nav.toc { position:static; max-height:none; background:#fff; border-radius:12px; padding:12px 14px; }
+  main { padding:18px 16px; }
+  header img { height:38px; }
+  table { font-size:15px; }
+  td:first-child { white-space:normal; }
+  .scroll { overflow-x:auto; }
+}
+@media print {
+  header, nav.toc, .top { display:none; }
+  .wrap { display:block; padding:0; }
+  main { box-shadow:none; padding:0; }
+  figure, table { break-inside:avoid; }
+}
+</style>
+</head>
+<body id="top">
+<header><img src="../logo.png" alt="phoebe 營養諮詢中心"><span class="t">老師操作手冊</span><a class="back" href="../">回到派案系統</a></header>
+<div class="wrap">
+<nav class="toc"><details open><summary>目錄</summary><ul><li class="l2"><a href="#s1">開始之前</a></li><li class="l2"><a href="#s2">第一部分　快速指引</a></li><li class="l2"><a href="#s3">第二部分　完整說明</a></li><li class="l3"><a href="#s4">1. 登入與畫面</a></li><li class="l3"><a href="#s5">2. 日期規則</a></li><li class="l3"><a href="#s6">3. 回覆首次服務日</a></li><li class="l3"><a href="#s7">4. 日期超過第 7 天</a></li><li class="l3"><a href="#s8">5. 待服務的派案</a></li><li class="l3"><a href="#s9">6. 申請改時間</a></li><li class="l3"><a href="#s10">7. 等待審核與被駁回</a></li><li class="l3"><a href="#s11">8. 回報完成</a></li><li class="l3"><a href="#s12">9. 無法服務</a></li><li class="l3"><a href="#s13">10. 已結束</a></li><li class="l3"><a href="#s14">11. 登出</a></li><li class="l3"><a href="#s15">12. 常見問題</a></li></ul></details></nav>
+<main>
+<h1>phoebe 派案追蹤 老師操作手冊</h1>
+<div class="updated">更新日期：2026/11/26</div>
+<h2 id="s1">開始之前</h2>
+<p>這本手冊給接 phoebe 派案的老師使用。收到派案後，請在這裡回覆第一次可以服務的日期，服務完再回報完成。用手機就能完成所有操作。</p>
+<ul>
+<li><strong>網址</strong>：https://phoebe168.github.io/phoebe-dispatch/</li>
+<li><strong>帳號</strong>：你的手機號碼</li>
+<li><strong>PIN</strong>：4 碼數字，由美英私下提供，請不要告訴別人</li>
+</ul>
+<p><strong>加到手機主畫面（建議做）</strong></p>
+<ul>
+<li><strong>iPhone</strong>：用 Safari 開啟網址 → 按下方「分享」圖示 →「加入主畫面」→「新增」。</li>
+<li><strong>Android</strong>：用 Chrome 開啟網址 → 按右上角「⋮」→「加到主畫面」→「新增」。</li>
+</ul>
+<p>加好之後，點主畫面上的 phoebe 圖示就能直接進入。</p>
+<h2 id="s2">第一部分　快速指引</h2>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>功能</th>
+<th>步驟</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第一次登入</td>
+<td>開啟網址 → 輸入手機號碼 → 輸入 PIN → 登入</td>
+</tr>
+<tr>
+<td>回覆首次服務日</td>
+<td>待回覆 → 回覆首次服務日 → 點綠色日期 → 送出</td>
+</tr>
+<tr>
+<td>日期超過第 7 天</td>
+<td>點橘色日期 → 填寫原因 → 送出</td>
+</tr>
+<tr>
+<td>申請改時間</td>
+<td>待服務 → 申請改時間 → 點新日期 → 填寫原因 → 送出 → 等管理者核准</td>
+</tr>
+<tr>
+<td>撤回改時間申請</td>
+<td>待服務 → 撤回申請 → 確定</td>
+</tr>
+<tr>
+<td>回報完成</td>
+<td>待服務 → 回報完成 → 確定</td>
+</tr>
+<tr>
+<td>無法服務</td>
+<td>無法服務 → 填寫原因 → 確定</td>
+</tr>
+<tr>
+<td>查看已完成的派案</td>
+<td>已結束</td>
+</tr>
+<tr>
+<td>登出</td>
+<td>右上角登出 → 確定</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="s3">第二部分　完整說明</h2>
+<p>圖中的紅框是要按的地方，上方的綠色數字是操作順序。圖中的個案都是示範資料。</p>
+<h3 id="s4">1. 登入與畫面</h3>
+<ol>
+<li>打開網址。</li>
+<li>輸入手機號碼和 4 碼 PIN。</li>
+<li>按「登入」。</li>
+</ol>
+<p>只有第一次需要登入，之後用同一支手機打開就會直接進入。</p>
+<p>登入後上方有三個分頁：</p>
+<ul>
+<li><strong>待回覆</strong>：派給你、你還沒回覆日期的派案。紅色數字是筆數，請盡快處理。</li>
+<li><strong>待服務</strong>：已經回覆日期，等待第一次服務。</li>
+<li><strong>已結束</strong>：已完成，或你回報無法服務的派案。</li>
+</ul>
+<p>每次操作後，右上角會出現「儲存中…」。變成「已儲存」之前，請不要關掉網頁。</p>
+<figure><img loading="lazy" alt="登入與畫面" src="img/t01.webp" /><figcaption>圖 1　① 輸入手機與 PIN　② 登入後的畫面</figcaption></figure>
+<h3 id="s5">2. 日期規則</h3>
+<p>派案當天算第 0 天，假日照算。系統會列出派案日起 15 天內的日期讓你選，已經過去的日子不會出現。</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>日期顏色</th>
+<th>天數</th>
+<th>說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>綠色</td>
+<td>第 0～7 天</td>
+<td>正常，直接送出</td>
+</tr>
+<tr>
+<td>橘色</td>
+<td>第 8～15 天</td>
+<td>可以選，但必須寫原因，這筆會列入異動通報</td>
+</tr>
+<tr>
+<td>沒有日期可選</td>
+<td>超過第 15 天</td>
+<td>請按「無法服務」說明原因</td>
+</tr>
+</tbody>
+</table></div>
+<p>請盡量安排在 7 天內。</p>
+<h3 id="s6">3. 回覆首次服務日</h3>
+<ol>
+<li>在「待回覆」找到派案，按「回覆首次服務日」。</li>
+<li>畫面下方會列出可以選的日期，每個日期都標了星期幾、第幾天。</li>
+<li>點你要的日期，再按「送出」。</li>
+</ol>
+<p>送出後，這筆會移到「待服務」。</p>
+<figure><img loading="lazy" alt="回覆首次服務日" src="img/t02.webp" /><figcaption>圖 2　① 按回覆首次服務日　② 日期清單　③ 選好日期後送出</figcaption></figure>
+<h3 id="s7">4. 日期超過第 7 天</h3>
+<p>選到橘色日期時，會出現提醒和原因欄。</p>
+<ol>
+<li>點橘色日期。</li>
+<li>在原因欄寫清楚為什麼沒辦法在 7 天內，例如「家屬出差」、「個案住院」。</li>
+<li>按「送出」。</li>
+</ol>
+<p>沒寫原因的話，「送出」按不下去。這個原因管理者會用來做異動通報，請寫具體一點。</p>
+<figure class="phone"><img loading="lazy" alt="超過第 7 天填寫原因" src="img/t03.webp" /><figcaption>圖 3　選到橘色日期，必須填寫原因</figcaption></figure>
+<h3 id="s8">5. 待服務的派案</h3>
+<p>「待服務」按服務日期排列，最近的在最上面。每筆會顯示首次服務日，以及第幾天的標籤（綠色是 7 天內，橘色是超過 7 天）。卡片下方有三個按鈕：回報完成、申請改時間、無法服務。</p>
+<figure class="phone"><img loading="lazy" alt="待服務清單" src="img/t04.webp" /><figcaption>圖 4　待服務清單</figcaption></figure>
+<h3 id="s9">6. 申請改時間</h3>
+<p>已經回覆的日期要改，需要管理者核准。</p>
+<ol>
+<li>在「待服務」找到派案，按「申請改時間」。</li>
+<li>點新的日期。虛線框的是目前的日期，不能選。</li>
+<li>填寫改時間的原因，這一欄不管日期幾天都要寫。</li>
+<li>按「送出」。</li>
+</ol>
+<p>核准之前，首次服務日還是原本的日期。</p>
+<figure><img loading="lazy" alt="申請改時間" src="img/t05.webp" /><figcaption>圖 5　① 按申請改時間　② 選新日期、寫原因後送出</figcaption></figure>
+<h3 id="s10">7. 等待審核與被駁回</h3>
+<ul>
+<li><strong>等待審核</strong>：卡片會出現「異動申請待審」，寫著你申請的新日期。想改成別的日期或不改了，按「撤回申請」→「確定」，再重新申請。</li>
+<li><strong>核准</strong>：首次服務日會直接變成新日期。</li>
+<li><strong>被駁回</strong>：卡片會出現紅底的駁回原因，首次服務日維持原本的日期。有需要可以再申請一次。</li>
+</ul>
+<figure><img loading="lazy" alt="等待審核與被駁回" src="img/t06.webp" /><figcaption>圖 6　① 等待審核中　② 申請被駁回</figcaption></figure>
+<h3 id="s11">8. 回報完成</h3>
+<p>第一次服務做完後，請當天回報。</p>
+<ol>
+<li>在「待服務」找到派案，按「回報完成」。</li>
+<li>確認視窗出現後按「確定」。</li>
+</ol>
+<p>這筆會移到「已結束」。還沒到服務日時，「回報完成」是灰色的，按不下去。服務日已過去卻還沒回報，卡片會變成紅框，請盡快回報；如果實際上沒去服務，請聯絡管理者。</p>
+<figure><img loading="lazy" alt="回報完成" src="img/t07.webp" /><figcaption>圖 7　① 可以回報完成　② 還沒到服務日　③ 服務日已過、還沒回報</figcaption></figure>
+<h3 id="s12">9. 無法服務</h3>
+<p>15 天內都排不出時間，或因為其他原因沒辦法接這個案，請回報無法服務。「待回覆」和「待服務」都可以按。</p>
+<ol>
+<li>按「無法服務」。</li>
+<li>寫下原因。</li>
+<li>按「確定」。</li>
+</ol>
+<p>這筆會退回給管理者改派，改派後就不會再出現在你的畫面。</p>
+<figure class="phone"><img loading="lazy" alt="回報無法服務" src="img/t08.webp" /><figcaption>圖 8　回報無法服務</figcaption></figure>
+<h3 id="s13">10. 已結束</h3>
+<p>「已結束」可以看到已經完成的派案，以及你回報無法服務、等待改派的派案。這裡只能查看，不用操作。</p>
+<figure class="phone"><img loading="lazy" alt="已結束" src="img/t09.webp" /><figcaption>圖 9　已結束</figcaption></figure>
+<h3 id="s14">11. 登出</h3>
+<p>一般不需要登出。要把手機借給別人，或在別人的手機上登入過時，按右上角「登出」→「確定」。登出後下次要重新輸入手機和 PIN。</p>
+<figure class="phone"><img loading="lazy" alt="登出按鈕" src="img/t10.webp" /><figcaption>圖 10　登出按鈕</figcaption></figure>
+<h3 id="s15">12. 常見問題</h3>
+<ul>
+<li><strong>忘記 PIN</strong>：請美英重設。重設後舊的登入會失效，要用新 PIN 重新登入。</li>
+<li><strong>PIN 打錯 5 次</strong>：帳號會鎖定 15 分鐘，時間到再試，或請美英重設 PIN 立即解鎖。</li>
+<li><strong>換手機或清除瀏覽器資料</strong>：重新輸入手機和 PIN 就好。</li>
+<li><strong>按了之後跳出紅色錯誤訊息</strong>：這次操作沒有存到，畫面會還原。確認網路正常後再操作一次。</li>
+<li><strong>看不到剛派給我的案子</strong>：關掉網頁再打開，或下拉重新整理。</li>
+<li><strong>沒有日期可以選</strong>：代表已經超過派案日第 15 天，請按「無法服務」，並聯絡美英。</li>
+</ul>
+</main>
+</div>
+<a class="top" href="#top" aria-label="回到頂端">↑</a>
+<script>
+// 手機上預設收起目錄，點了目錄項目自動收起
+if (window.matchMedia('(max-width: 860px)').matches) {
+  var d = document.querySelector('nav.toc details'); d.removeAttribute('open');
+  document.querySelectorAll('nav.toc a').forEach(function (a) { a.addEventListener('click', function () { d.removeAttribute('open'); }); });
+}
+</script>
+</body>
+</html>

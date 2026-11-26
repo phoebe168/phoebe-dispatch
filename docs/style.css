@@ -36,7 +36,9 @@ button, input, select, textarea { font: inherit; }
 .brand span { border-left: 1px solid var(--line); padding-left: 10px; }
 .who { font-size: 14px; display: flex; gap: 8px; align-items: center; color: var(--text); }
 .who .role { background: var(--brown-l); color: var(--brown); border-radius: 10px; padding: 0 8px; font-size: 12px; }
-.who button { background: transparent; color: var(--blue); border: 1px solid var(--blue); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+.who button, .who .help { background: transparent; color: var(--blue); border: 1px solid var(--blue); border-radius: 6px; padding: 2px 10px; cursor: pointer; font-size: 14px; text-decoration: none; line-height: 1.5; }
+.who .help { background: var(--blue-l); border-color: var(--blue-l); }
+@media (max-width: 420px) { .who .role { display: none; } .who { gap: 6px; } .brand span { display: none; } }
 @media (max-width: 380px) { .brand img { height: 40px; } .brand span { font-size: 15px; } }
 
 main { max-width: 860px; margin: 0 auto; padding: 12px 12px 80px; }
@@ -154,3 +156,4 @@ table.list th { background: var(--brown-l); color: var(--brown); font-weight: 60
 .sync.done { background: var(--ok-l); color: var(--ok); }
 .sync.done::before { background: var(--ok); animation: none; }
 @keyframes pulse { 50% { opacity: .3; } }
+a { color: var(--blue); }
