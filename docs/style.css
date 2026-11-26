@@ -1,10 +1,10 @@
 :root {
-  /* phoebe 企業色：墨綠 #01513c、棕 #723e27 */
-  --blue: #01513c;
-  --blue-d: #013d2d;
-  --blue-l: #e2eee8;
-  --brown: #723e27;
-  --brown-l: #f3e9e3;
+  /* phoebe 企業色：綠 #33665f、灰褐 #7f6c5e（取自 phoebe-logo） */
+  --blue: #33665f;
+  --blue-d: #264d47;
+  --blue-l: #e3ecea;
+  --brown: #7f6c5e;
+  --brown-l: #f1ece8;
   --bg: #f5f6f3;
   --card: #fff;
   --line: #dde3df;
@@ -32,20 +32,20 @@ button, input, select, textarea { font: inherit; }
   border-bottom: 3px solid var(--blue);
   padding: 8px 14px; padding-top: max(8px, env(safe-area-inset-top)); }
 .brand { font-weight: 700; letter-spacing: .5px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.brand img { height: 46px; width: auto; display: block; }
+.brand img { height: 42px; width: auto; display: block; }
 .brand span { border-left: 1px solid var(--line); padding-left: 10px; }
 .who { font-size: 14px; display: flex; gap: 8px; align-items: center; color: var(--text); }
 .who .role { background: var(--brown-l); color: var(--brown); border-radius: 10px; padding: 0 8px; font-size: 12px; }
 .who button, .who .help { background: transparent; color: var(--blue); border: 1px solid var(--blue); border-radius: 6px; padding: 2px 10px; cursor: pointer; font-size: 14px; text-decoration: none; line-height: 1.5; }
 .who .help { background: var(--blue-l); border-color: var(--blue-l); }
 @media (max-width: 420px) { .who .role { display: none; } .who { gap: 6px; } .brand span { display: none; } }
-@media (max-width: 380px) { .brand img { height: 40px; } .brand span { font-size: 15px; } }
+@media (max-width: 380px) { .brand img { height: 34px; } .brand span { font-size: 15px; } }
 
 main { max-width: 860px; margin: 0 auto; padding: 12px 12px 80px; }
 
 /* 登入 */
 .login { max-width: 360px; margin: 40px auto; background: var(--card); border-radius: var(--r); padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-.login .logo { display: block; width: 180px; margin: 0 auto 18px; }
+.login .logo { display: block; width: 100%; max-width: 280px; margin: 0 auto 18px; }
 .login h1 { font-size: 20px; margin: 0 0 4px; color: var(--blue); }
 .login p { margin: 0 0 20px; }
 
@@ -134,7 +134,7 @@ table.list th, table.list td { padding: 10px; border-bottom: 1px solid var(--lin
 table.list th { background: var(--brown-l); color: var(--brown); font-weight: 600; font-size: 14px; }
 
 /* 視窗 */
-.modal { position: fixed; inset: 0; background: rgba(15,35,28,.45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+.modal { position: fixed; inset: 0; background: rgba(25,45,42,.45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
 @media (min-width: 560px) { .modal { align-items: center; } }
 .sheet { background: #fff; width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto;
   border-radius: 14px 14px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
