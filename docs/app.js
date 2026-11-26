@@ -233,7 +233,12 @@
     },
     saveOptions: function (d, p) {
       var seen = {};
-      d.options[p.category] = p.values.map(function (v) { return v.trim(); }).filter(function (v) { if (!v || seen[v]) return false; seen[v] = 1; return true; });
+      var vals = p.values.map(function (v) { return v.trim(); }).filter(function (v) { if (!v || seen[v]) return false; seen[v] = 1; return true; });
+      if (p.category === '超過7天原因') {
+        vals = vals.filter(function (v) { return v !== '其他' && v !== '其他：'; });
+        if (!vals.length) vals = DEFAULT_OVER_REASONS.slice();
+      }
+      d.options[p.category] = vals;
     }
   };
 
@@ -390,19 +395,46 @@
     if (mode === 'change') h += '<div class="small" style="margin-top:6px">目前：' + full(c.firstDate) + '（第 ' + c.day + ' 天），需管理者核准才會生效。</div>';
     h += '<div class="legend"><span><i style="background:#2f7d4f"></i>' + r.normal + ' 天內（正常）</span><span><i style="background:#b66a12"></i>第 ' + (r.normal + 1) + '～' + r.max + ' 天（需填原因）</span></div>';
     h += '<div class="dates" id="dates">' + opts + '</div>';
-    h += '<div id="overBox" class="alertbox hidden">這個日期超過 ' + r.normal + ' 天，會列入異動通報，必須寫原因。</div>';
-    h += '<div id="reasonWrap" class="' + (mode === 'change' ? '' : 'hidden') + '"><label for="reason" id="reasonLabel">' + (mode === 'change' ? '異動原因（必填）' : '超過 7 天的原因（必填）') + '</label>' +
-      '<textarea id="reason" placeholder="例如：家屬要求延後、個案住院"></textarea></div>';
+    h += '<div id="overBox" class="alertbox hidden">這個日期超過 ' + r.normal + ' 天，會列入異動通報，請選擇原因。</div>';
+    // 超過 7 天：常用原因單選，選「其他」才自己填
+    var reasons = overReasons();
+    h += '<div id="overWrap" class="hidden"><div class="qlabel">超過 ' + r.normal + ' 天的原因（必選）</div><div class="choices" id="choices">' +
+      reasons.concat(['其他']).map(function (t, i) {
+        return '<label class="choice"><input type="radio" name="ovr" value="' + esc(t) + '"' + (t === '其他' ? ' data-other="1"' : '') + '><span>' + esc(t) + '</span></label>';
+      }).join('') + '</div>' +
+      '<div id="otherWrap" class="hidden"><textarea id="reasonOther" placeholder="請寫下原因"></textarea></div></div>';
+    // 改時間但仍在 7 天內：自由填寫異動原因
+    h += '<div id="plainWrap" class="' + (mode === 'change' ? '' : 'hidden') + '"><label for="reason">異動原因（必填）</label>' +
+      '<textarea id="reason" placeholder="例如：家屬要求改時間"></textarea></div>';
     h += '<div class="foot"><button class="btn" data-close>取消</button><button class="btn primary" id="send" disabled>送出</button></div>';
     openModal(h);
 
     var picked = null;
-    var reasonWrap = document.getElementById('reasonWrap'), overBox = document.getElementById('overBox'),
-      reason = document.getElementById('reason'), send = document.getElementById('send');
+    var overWrap = document.getElementById('overWrap'), plainWrap = document.getElementById('plainWrap'),
+      otherWrap = document.getElementById('otherWrap'), other = document.getElementById('reasonOther'),
+      overBox = document.getElementById('overBox'), reason = document.getElementById('reason'), send = document.getElementById('send');
+    function chosen() {
+      var x = document.querySelector('input[name=ovr]:checked');
+      if (!x) return '';
+      return x.getAttribute('data-other') ? other.value.trim() : x.value;
+    }
+    function reasonText() {
+      if (!picked) return '';
+      if (picked.day > r.normal) return chosen();
+      return mode === 'change' ? reason.value.trim() : '';
+    }
     function check() {
       var need = picked && (mode === 'change' || picked.day > r.normal);
-      send.disabled = !picked || (need && !reason.value.trim());
+      send.disabled = !picked || (need && !reasonText());
     }
+    document.getElementById('choices').addEventListener('change', function () {
+      var x = document.querySelector('input[name=ovr]:checked');
+      var isOther = !!(x && x.getAttribute('data-other'));
+      otherWrap.classList.toggle('hidden', !isOther);
+      if (isOther) other.focus();
+      check();
+    });
+    other.addEventListener('input', check);
     document.getElementById('dates').addEventListener('click', function (e) {
       var b = e.target.closest('.d'); if (!b || b.disabled) return;
       Array.prototype.forEach.call(this.querySelectorAll('.d'), function (x) { x.classList.remove('sel'); });
@@ -410,16 +442,22 @@
       picked = { date: b.getAttribute('data-date'), day: Number(b.getAttribute('data-day')) };
       var over = picked.day > r.normal;
       overBox.classList.toggle('hidden', !over);
-      if (mode !== 'change') reasonWrap.classList.toggle('hidden', !over);
-      if (over) reason.focus();
+      overWrap.classList.toggle('hidden', !over);
+      plainWrap.classList.toggle('hidden', over || mode !== 'change');
       check();
     });
     reason.addEventListener('input', check);
     send.onclick = function () {
-      var payload = { caseId: c.id, date: picked.date, reason: reason.value.trim() };
+      var payload = { caseId: c.id, date: picked.date, reason: reasonText() };
       if (mode === 'change') act('requestChange', payload, '已送出異動申請，等待管理者核准', true);
       else act('reply', payload, '已回覆首次服務日', true);
     };
+  }
+
+  var DEFAULT_OVER_REASONS = ['配合家屬可約時間', '家屬指定服務日期', '近期個案數較多，7日內無法安排服務'];
+  function overReasons() {
+    var o = S.data.options && S.data.options['超過7天原因'];
+    return o && o.length ? o : DEFAULT_OVER_REASONS;
   }
 
   function reasonDialog(title, hint, label, onOk, danger) {
@@ -622,8 +660,9 @@
   function optionsView() {
     var o = S.data.options;
     var h = '';
-    ['服務項目', '區域'].forEach(function (cat) {
-      h += '<div class="form" style="margin-bottom:12px"><b>' + cat + '</b><div class="muted small">一行一個，順序就是下拉選單的順序</div>' +
+    ['服務項目', '區域', '超過7天原因'].forEach(function (cat) {
+      var hint = cat === '超過7天原因' ? '老師選到第 8 天以後時的常用原因，一行一個。「其他」會自動排在最後，不用寫。全部清空會恢復預設。' : '一行一個，順序就是下拉選單的順序';
+      h += '<div class="form" style="margin-bottom:12px"><b>' + cat + '</b><div class="muted small">' + hint + '</div>' +
         '<textarea data-cat="' + cat + '" style="min-height:140px">' + esc((o[cat] || []).join('\n')) + '</textarea>' +
         '<button class="btn primary" style="margin-top:8px" data-a="saveOpt" data-cat="' + cat + '">儲存' + cat + '</button></div>';
     });

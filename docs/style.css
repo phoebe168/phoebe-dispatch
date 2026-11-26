@@ -157,3 +157,9 @@ table.list th { background: var(--brown-l); color: var(--brown); font-weight: 60
 .sync.done::before { background: var(--ok); animation: none; }
 @keyframes pulse { 50% { opacity: .3; } }
 a { color: var(--blue); }
+.qlabel { font-size: 14px; color: var(--muted); margin: 12px 0 6px; }
+.choices { display: grid; gap: 8px; }
+.choice { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer; margin: 0; color: var(--text); font-size: 15px; background: #fff; }
+.choice input { width: 20px; height: 20px; margin: 1px 0 0; flex: 0 0 auto; accent-color: var(--blue); }
+.choice:has(input:checked) { border-color: var(--blue); background: var(--blue-l); }
+#otherWrap textarea { margin-top: 8px; }
