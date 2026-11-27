@@ -251,7 +251,11 @@
       c.notified = c.notifiedAt = c.notifiedBy = '';
       c.reassignCount = String(Number(c.reassignCount || 0) + 1); c.updatedAt = nowStr();
     },
-    cancelCase: function (d, p) { var c = cById(d, p.caseId); voidPend(d, c.id); cancelBookedLocal(d, c.id); c.status = '已取消'; c.cancelReason = p.reason; c.updatedAt = nowStr(); },
+    cancelCase: function (d, p) {
+      var c = cById(d, p.caseId); voidPend(d, c.id); cancelBookedLocal(d, c.id);
+      if (p.notified) { c.notified = 'Y'; c.notifiedAt = nowStr(); c.notifiedBy = d.user.name; }
+      c.status = '已取消'; c.cancelReason = p.reason; c.updatedAt = nowStr();
+    },
     markNotified: function (d, p) {
       var c = cById(d, p.caseId);
       if (p.value) { c.notified = 'Y'; c.notifiedAt = nowStr(); c.notifiedBy = d.user.name; }
@@ -279,6 +283,10 @@
       if (p.category === '超過7天原因') {
         vals = vals.filter(function (v) { return v !== '其他' && v !== '其他：'; });
         if (!vals.length) vals = DEFAULT_OVER_REASONS.slice();
+      }
+      if (p.category === '異常通報原因') {
+        vals = vals.filter(function (v) { return v !== '其他' && v !== '其他：' && v !== '其它'; });
+        if (!vals.length) vals = ['家屬無法配合時間', '家屬不想參加'];
       }
       if (p.category === '結案原因') {
         vals = vals.filter(function (v) { return v !== '其它' && v !== '其他'; });
@@ -364,6 +372,10 @@
   }
   function overdueVisits(c) { return c.status === '服務中' ? upcomingOf(c).filter(function (v) { return v.date < today(); }) : []; }
   function overdueUnreported(c) { return (c.status === '待服務' && c.firstDate && c.firstDate < today()) || overdueVisits(c).length > 0; }
+  // 個案無法服務、協調不成、已通報並取消
+  function failedCase(c) { return c.status === '已取消' && !!c.cannotReason && c.notified === 'Y'; }
+  // 異常通報分頁中還沒處理完的：逾 7 天未通報、個案無法服務尚未處理
+  function abnormalPending(c) { return c.status === '無法服務' || (inReport(c) && c.notified !== 'Y'); }
   function inReport(c) { return !!c.firstDate && Number(c.day) > rules().normal && ['待回覆', '無法服務', '已取消'].indexOf(c.status) < 0; }
   function ruleCheck(c, date, excludeId) {
     if (!c.clientId) return '';
@@ -463,10 +475,10 @@
       var left = rules().max - elapsed(c);
       cls = elapsed(c) > rules().normal ? 'warn' : '';
       h += caseHead(c);
-      if (left < 0) { cls = 'bad'; h += '<div class="note bad">已超過 ' + rules().max + ' 天，無法再選日期，請按「無法服務」說明原因。</div>'; }
+      if (left < 0) { cls = 'bad'; h += '<div class="note bad">已超過 ' + rules().max + ' 天，無法再選日期，請按「異常通報」說明原因。</div>'; }
       h += '<div class="acts">';
       if (left >= 0) h += '<button class="btn primary" data-a="reply" data-id="' + c.id + '">回覆首次服務日</button>';
-      h += '<button class="btn danger" data-a="cannot" data-id="' + c.id + '">無法服務</button></div>';
+      h += '<button class="btn danger" data-a="cannot" data-id="' + c.id + '">異常通報</button></div>';
     } else if (c.status === '待服務') {
       var od = overdueUnreported(c);
       cls = od ? 'bad' : (Number(c.day) > rules().normal ? 'warn' : 'ok');
@@ -484,7 +496,7 @@
         h += '<div class="acts">' +
           '<button class="btn ok" data-a="complete" data-id="' + c.id + '"' + (can ? '' : ' disabled title="服務日當天之後才能回報"') + '>回報完成</button>' +
           '<button class="btn" data-a="change" data-id="' + c.id + '">申請改時間</button>' +
-          '<button class="btn danger" data-a="cannot" data-id="' + c.id + '">無法服務</button>' +
+          '<button class="btn danger" data-a="cannot" data-id="' + c.id + '">異常通報</button>' +
           '<button class="btn danger" data-a="close" data-id="' + c.id + '">結案</button></div>';
       }
     } else if (c.status === '服務中') {
@@ -502,7 +514,7 @@
       if (c.status === '已結案') {
         h += visitList(c, false);
         h += '<div class="note">已結案：' + esc(c.closeReason) + '<br><span class="muted small">' + esc((c.closedAt || '').slice(0, 16)) + '</span></div>';
-      } else h += '<div class="note">已回報無法服務：' + esc(c.cannotReason) + '<br><span class="muted small">等待管理者改派</span></div>';
+      } else h += '<div class="note">已異常通報：' + esc(c.cannotReason) + '<br><span class="muted small">已通報管理者處理</span></div>';
     }
     return '<div class="card ' + cls + '">' + h + '</div>';
   }
@@ -527,7 +539,7 @@
     h += '<div class="legend"><span><i style="background:#2f7d4f"></i>' + r.normal + ' 天內（正常）</span><span><i style="background:#b66a12"></i>第 ' + (r.normal + 1) + '～' + r.max + ' 天（需填原因）</span></div>';
     h += '<div class="dates" id="dates">' + opts + '</div>';
     h += '<div id="whyBox" class="note bad hidden"></div>';
-    h += '<div id="overBox" class="alertbox hidden">這個日期超過 ' + r.normal + ' 天，會列入異動通報，請選擇原因。</div>';
+    h += '<div id="overBox" class="alertbox hidden">這個日期超過 ' + r.normal + ' 天，會列入異常通報，請選擇原因。</div>';
     // 超過 7 天：常用原因單選，選「其他」才自己填
     var reasons = overReasons();
     h += '<div id="overWrap" class="hidden"><div class="qlabel">超過 ' + r.normal + ' 天的原因（必選）</div><div class="choices" id="choices">' +
@@ -637,6 +649,35 @@
     };
   }
 
+  // ===== 單選原因（最後一個「其他」自己填） =====
+  function abnormalReasons() {
+    var o = S.data.options && S.data.options['異常通報原因'];
+    return o && o.length ? o : ['家屬無法配合時間', '家屬不想參加'];
+  }
+  function choiceDialog(o, onOk) {
+    openModal('<h2>' + o.title + '</h2><div class="muted small">' + o.sub + '</div>' +
+      '<div class="qlabel">' + o.label + '</div><div class="choices" id="xchoices">' +
+      o.items.concat([o.other]).map(function (t) {
+        return '<label class="choice"><input type="radio" name="xr" value="' + esc(t) + '"' + (t === o.other ? ' data-other="1"' : '') + '><span>' + esc(t) + '</span></label>';
+      }).join('') + '</div><div id="xOtherWrap" class="hidden"><textarea id="xOther" placeholder="請寫下原因"></textarea></div>' +
+      (o.extra || '') +
+      '<div class="foot"><button class="btn" data-close>取消</button><button class="btn danger" id="xOk" disabled>' + o.ok + '</button></div>');
+    var okb = document.getElementById('xOk'), other = document.getElementById('xOther'), ow = document.getElementById('xOtherWrap');
+    function val() {
+      var x = document.querySelector('input[name=xr]:checked');
+      if (!x) return '';
+      return x.getAttribute('data-other') ? (other.value.trim() ? o.other + '：' + other.value.trim() : '') : x.value;
+    }
+    document.getElementById('xchoices').addEventListener('change', function () {
+      var x = document.querySelector('input[name=xr]:checked');
+      ow.classList.toggle('hidden', !(x && x.getAttribute('data-other')));
+      if (x && x.getAttribute('data-other')) other.focus();
+      okb.disabled = !val();
+    });
+    other.addEventListener('input', function () { okb.disabled = !val(); });
+    okb.onclick = function () { onOk(val()); };
+  }
+
   // ===== 結案 =====
   function closeDialog(c) {
     var n = upcomingOf(c).length;
@@ -697,9 +738,8 @@
       '服務中': cs.filter(function (c) { return c.status === '服務中'; }),
       '未約提醒': cs.filter(function (c) { return remindLevel(c) > 0; }),
       '異動待審': cs.filter(function (c) { return pend[c.id]; }),
-      '待改派': cs.filter(function (c) { return c.status === '無法服務'; }),
+      '異常通報': cs.filter(function (c) { return inReport(c) || c.status === '無法服務' || failedCase(c); }),
       '逾期未回報': cs.filter(overdueUnreported),
-      '異動通報': cs.filter(inReport),
       '已結案': cs.filter(function (c) { return c.status === '已結案'; }),
       '全部': cs.slice()
     };
@@ -738,10 +778,10 @@
 
   function adminCases() {
     var g = adminGroups();
-    var alertTabs = { '待回覆': 1, '異動待審': 1, '待改派': 1, '逾期未回報': 1, '未約提醒': 1, '已結案': 1 };
+    var alertTabs = { '待回覆': 1, '異動待審': 1, '異常通報': 1, '逾期未回報': 1, '未約提醒': 1, '已結案': 1 };
     var h = '<div class="tabs">';
     Object.keys(g).forEach(function (k) {
-      var n = k === '異動通報' ? g[k].filter(function (c) { return c.notified !== 'Y'; }).length :
+      var n = k === '異常通報' ? g[k].filter(abnormalPending).length :
         (k === '已結案' ? g[k].filter(function (c) { return c.closeSeen !== 'Y'; }).length : g[k].length);
       var al = alertTabs[k] && n > 0;
       h += '<button class="tab' + (S.filter === k ? ' on' : '') + '" data-filter="' + k + '">' + k +
@@ -759,11 +799,12 @@
       '逾期未回報': function (a, b) { return a.firstDate.localeCompare(b.firstDate); },
       '未約提醒': function (a, b) { return lastDoneOf(a).localeCompare(lastDoneOf(b)); },
       '已結案': function (a, b) { return (b.closedAt || '').localeCompare(a.closedAt || ''); },
-      '異動通報': function (a, b) { return (a.notified === 'Y') - (b.notified === 'Y') || b.firstDate.localeCompare(a.firstDate); }
+      '異常通報': function (a, b) { return abnormalPending(b) - abnormalPending(a) || (b.updatedAt || '').localeCompare(a.updatedAt || ''); }
     };
     list.sort(sorters[S.filter] || function (a, b) { return (b.updatedAt || '').localeCompare(a.updatedAt || ''); });
 
-    if (S.filter === '異動通報') h += '<div class="muted small" style="margin-bottom:8px">首次服務落在第 ' + (rules().normal + 1) + '～' + rules().max + ' 天的派案。到系統完成異動通報後打勾，紅色數字是還沒通報的筆數。</div>';
+    if (S.filter === '異常通報') h += '<div class="muted small" style="margin-bottom:8px">兩種需要處理的派案：<b>逾 7 天</b>（首次服務落在第 ' + (rules().normal + 1) + '～' + rules().max +
+      ' 天，完成通報後打勾）；<b>個案無法服務</b>（先協調，協調成功就改派，協調不成就通報後取消）。紅色數字是還沒處理完的筆數。</div>';
     if (!list.length) h += '<div class="empty">沒有資料</div>';
     list.forEach(function (c) { h += adminCard(c); });
     return h;
@@ -772,8 +813,10 @@
   function adminCard(c) {
     var cls = '', h = caseHead(c, true);
     var p = pendingOf(c);
-    var st = '<span class="tag ' + ({ '待回覆': 'warn', '待服務': '', '服務中': 'ok', '已結案': 'gray', '無法服務': 'bad', '已取消': 'gray' }[c.status] || '') + '">' + c.status + '</span>' +
+    var st = '<span class="tag ' + ({ '待回覆': 'warn', '待服務': '', '服務中': 'ok', '已結案': 'gray', '無法服務': 'bad', '已取消': 'gray' }[c.status] || '') + '">' + (c.status === '無法服務' ? '個案無法服務' : c.status) + '</span>' +
       (c.status === '已結案' && (c.closeSeen !== 'Y' || (S.fresh && S.fresh[c.id])) ? ' <span class="tag bad">新</span>' : '');
+    if (inReport(c)) st += ' <span class="tag warn">逾 7 天</span>';
+    if (failedCase(c)) st += ' <span class="tag bad">協調不成</span>';
     h = h.replace('</h3>', ' ' + st + (Number(c.reassignCount) > 0 ? ' <span class="tag gray">改派 ' + c.reassignCount + ' 次</span>' : '') + '</h3>');
     var acts = [];
 
@@ -791,7 +834,7 @@
       if (c.status === '已結案') h += '<div class="note">結案原因：' + esc(c.closeReason) + '<br><span class="muted small">' + esc(c.closedBy) + '．' + esc((c.closedAt || '').slice(0, 16)) + '</span></div>';
       else acts.push('edit', 'cancel');
       if (inReport(c)) {
-        h += '<div class="row"><label class="check"><input type="checkbox" data-a="notify" data-id="' + c.id + '"' + (c.notified === 'Y' ? ' checked' : '') + '> 已完成異動通報（首次服務第 ' + c.day + ' 天）</label></div>';
+        h += '<div class="row"><label class="check"><input type="checkbox" data-a="notify" data-id="' + c.id + '"' + (c.notified === 'Y' ? ' checked' : '') + '> 已完成通報（首次服務第 ' + c.day + ' 天）</label></div>';
         acts.push('copy');
       }
     } else if (c.status === '待服務') {
@@ -809,21 +852,25 @@
         acts.push('reassign', 'edit', 'cancel');
       }
       if (inReport(c)) {
-        h += '<div class="row"><label class="check"><input type="checkbox" data-a="notify" data-id="' + c.id + '"' + (c.notified === 'Y' ? ' checked' : '') + '> 已完成異動通報' +
+        h += '<div class="row"><label class="check"><input type="checkbox" data-a="notify" data-id="' + c.id + '"' + (c.notified === 'Y' ? ' checked' : '') + '> 已完成通報' +
           (c.notified === 'Y' ? ' <span class="muted small">（' + esc(c.notifiedBy) + ' ' + esc(c.notifiedAt.slice(0, 16)) + '）</span>' : '') + '</label></div>';
         acts.push('copy');
       }
     } else if (c.status === '無法服務') {
       cls = 'bad';
-      h += '<div class="note bad">老師回報無法服務：' + esc(c.cannotReason) + '<br><span class="muted small">' + esc(c.cannotAt) + '</span></div>';
-      acts.push('reassign', 'edit', 'cancel');
+      h += '<div class="note bad">老師異常通報：' + esc(c.cannotReason) + '<br><span class="muted small">' + esc(c.cannotAt) + '</span></div>' +
+        '<div class="muted small" style="margin-top:6px">請先和家屬、老師協調。協調成功就改派（可以派回原老師）；協調不成，完成通報後取消。</div>';
+      acts.push('okReassign', 'failCancel', 'copyAb', 'edit');
     } else if (c.status === '已取消') {
-      h += '<div class="note">取消原因：' + esc(c.cancelReason) + '</div>';
+      if (failedCase(c)) h += '<div class="note">老師異常通報：' + esc(c.cannotReason) + '</div>';
+      h += '<div class="note">取消原因：' + esc(c.cancelReason) +
+        (failedCase(c) ? '<br><span class="muted small">已通報（' + esc(c.notifiedBy) + ' ' + esc((c.notifiedAt || '').slice(0, 16)) + '）</span>' : '') + '</div>';
     }
 
     var labels = {
       approve: ['primary', '核准'], reject: ['danger', '駁回'], complete: ['ok', '代為回報完成'],
-      reassign: ['', '改派'], edit: ['', '修改'], cancel: ['danger', '取消派案'], copy: ['', '複製通報資料']
+      reassign: ['', '改派'], edit: ['', '修改'], cancel: ['danger', '取消派案'], copy: ['', '複製通報資料'],
+      okReassign: ['primary', '協調成功：改派'], failCancel: ['danger', '協調不成：通報並取消'], copyAb: ['', '複製通報資料']
     };
     if (acts.length) {
       h += '<div class="acts">' + acts.map(function (a) {
@@ -980,9 +1027,10 @@
       h += '<div><label for="set_' + k + '">' + SETTING_LABELS[k][0] + '（' + SETTING_LABELS[k][1] + '）</label><input id="set_' + k + '" type="number" inputmode="numeric" value="' + st[k] + '"></div>';
     });
     h += '</div><button class="btn primary" style="margin-top:8px" data-a="saveSet">儲存預約規則</button></div>';
-    ['服務碼別', '區域', '超過7天原因', '結案原因'].forEach(function (cat) {
+    ['服務碼別', '區域', '超過7天原因', '結案原因', '異常通報原因'].forEach(function (cat) {
       var hint = cat === '超過7天原因' ? '老師選到第 8 天以後時的常用原因，一行一個。「其他」會自動排在最後，不用寫。全部清空會恢復預設。' :
-        (cat === '結案原因' ? '老師結案時的原因，一行一個。「其它」會自動排在最後（選其它要自己寫），不用寫。全部清空會恢復預設。' : '一行一個，順序就是下拉選單的順序');
+        (cat === '結案原因' ? '老師結案時的原因，一行一個。「其它」會自動排在最後（選其它要自己寫），不用寫。全部清空會恢復預設。' :
+        (cat === '異常通報原因' ? '老師按「異常通報」時的原因，一行一個。「其他」會自動排在最後（選其他要自己寫），不用寫。全部清空會恢復預設。' : '一行一個，順序就是下拉選單的順序'));
       h += '<div class="form" style="margin-bottom:12px"><b>' + cat + '</b><div class="muted small">' + hint + '</div>' +
         '<textarea data-cat="' + cat + '" style="min-height:140px">' + esc((o[cat] || []).join('\n')) + '</textarea>' +
         '<button class="btn primary" style="margin-top:8px" data-a="saveOpt" data-cat="' + cat + '">儲存' + cat + '</button></div>';
@@ -1013,8 +1061,9 @@
       case 'reply': datePicker(c, 'reply'); break;
       case 'change': datePicker(c, 'change'); break;
       case 'cannot':
-        reasonDialog('無法服務', esc(c.caseName) + '．送出後會退回給管理者改派', '原因（必填）', function (r) {
-          act('cannotServe', { caseId: c.id, reason: r }, '已回報無法服務', true);
+        choiceDialog({ title: '異常通報', sub: esc(c.caseName) + '．' + esc(c.service) + '<br>個案那邊的原因造成無法服務時，請通報管理者處理',
+          label: '原因（必選）', items: abnormalReasons(), other: '其他', ok: '送出異常通報' }, function (r) {
+          act('cannotServe', { caseId: c.id, reason: r }, '已送出異常通報', true);
         }, true); break;
       case 'complete':
         if (confirm('確認「' + c.caseName + '」已在 ' + full(c.firstDate) + ' 完成第一次服務？')) act('complete', { caseId: c.id }, '已回報完成', true);
@@ -1031,6 +1080,7 @@
         reasonDialog('駁回異動申請', '原時間 ' + full(p2.oldDate) + ' 維持不變', '駁回原因（老師會看到）', function (r) {
           act('reviewChange', { changeId: p2.id, approve: false, comment: r }, '已駁回', true);
         }, true); break;
+      case 'okReassign':
       case 'reassign':
         var tl = teachers().filter(function (x) { return x.id !== c.teacherId || c.status === '無法服務'; }).map(function (x) { return { value: x.id, text: x.name }; });
         openModal('<h2>改派</h2><div class="muted small">' + esc(c.caseName) + '．目前老師：' + esc(c.teacherName) + '<br>派案日維持 ' + full(c.dispatchDate) + '，天數照原派案日計算。</div>' +
@@ -1052,6 +1102,19 @@
         e.preventDefault();
         var val = !(c.notified === 'Y');
         act('markNotified', { caseId: c.id, value: val }, val ? '已標記為已通報' : '已取消標記', true);
+        break;
+      case 'failCancel':
+        openModal('<h2>協調不成：通報並取消</h2><div class="muted small">' + esc(c.caseName) + '．' + esc(c.service) + '．老師通報：' + esc(c.cannotReason) + '</div>' +
+          '<label for="fcR">取消原因（必填）</label><textarea id="fcR">' + esc('協調不成：' + c.cannotReason) + '</textarea>' +
+          '<label class="check" style="margin-top:10px"><input type="checkbox" id="fcN"> 我已完成異常通報</label>' +
+          '<div class="foot"><button class="btn" data-close>返回</button><button class="btn danger" id="fcOk" disabled>取消派案</button></div>');
+        var fcN = document.getElementById('fcN'), fcR = document.getElementById('fcR'), fcOk = document.getElementById('fcOk');
+        var fcChk = function () { fcOk.disabled = !(fcN.checked && fcR.value.trim()); };
+        fcN.onchange = fcChk; fcR.oninput = fcChk;
+        fcOk.onclick = function () { act('cancelCase', { caseId: c.id, reason: fcR.value.trim(), notified: true }, '已通報並取消', true); };
+        break;
+      case 'copyAb':
+        copyText([c.caseNo, c.caseName, c.service, '派案日 ' + c.dispatchDate, '老師 ' + c.teacherName, '個案無法服務：' + c.cannotReason].join('\t'));
         break;
       case 'copy':
         var txt = [c.caseNo, c.caseName, c.service, '派案日 ' + c.dispatchDate, '首次服務日 ' + c.firstDate + '（第' + c.day + '天）', '原因：' + c.overReason].join('\t');
