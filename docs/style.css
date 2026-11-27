@@ -163,3 +163,29 @@ a { color: var(--blue); }
 .choice input { width: 20px; height: 20px; margin: 1px 0 0; flex: 0 0 auto; accent-color: var(--blue); }
 .choice:has(input:checked) { border-color: var(--blue); background: var(--blue-l); }
 #otherWrap textarea { margin-top: 8px; }
+
+/* ===== 後續服務 ===== */
+.d.blk { background: #eceff1 !important; border-color: #d5dadd !important; color: #9aa3a8 !important; text-decoration: line-through; }
+.visits { margin-top: 8px; border-top: 1px solid var(--line, #e3e6e8); }
+.vrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 7px 0; border-bottom: 1px solid var(--line, #e3e6e8); font-size: 15px; }
+.vrow.done { color: var(--muted); }
+.vno { min-width: 52px; font-size: 13px; color: var(--muted); }
+.vdate { font-weight: bold; }
+.vacts { margin-left: auto; display: flex; gap: 6px; }
+.pick { display: flex; gap: 8px; margin-bottom: 6px; }
+.pick input { flex: 1; }
+.calhead { display: flex; align-items: center; justify-content: space-between; margin: 6px 0; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cw { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 0; }
+.cd { position: relative; border: 1px solid #bfe0cf; background: var(--ok-l); color: var(--ok); border-radius: 8px; min-height: 42px; font-size: 16px; cursor: pointer; padding: 0; }
+.cd.out { background: transparent; border-color: transparent; color: #c3c9cc; cursor: default; }
+.cd.blk { background: #eceff1; border-color: #d5dadd; color: #9aa3a8; }
+.cd.today { box-shadow: inset 0 0 0 2px var(--brown); }
+.cd.sel { background: var(--blue); border-color: var(--blue); color: #fff; }
+.cd i, .k { position: absolute; right: 3px; top: 1px; font-style: normal; font-size: 10px; line-height: 1; }
+.cd.mine i, .k.mine { color: var(--blue); }
+.cd.other i, .k.other { color: var(--brown); font-weight: bold; }
+.cd.sel i { color: #fff; }
+.calkey { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.calkey .k { position: static; margin-right: 4px; font-size: 12px; }
+.qlabel { font-weight: bold; margin: 10px 0 4px; }
