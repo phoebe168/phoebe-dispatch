@@ -7,7 +7,43 @@
     set: function (k, v, session) { try { (session ? sessionStorage : localStorage).setItem(k, v); } catch (e) {} },
     del: function (k) { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) {} }
   };
-  var K_TEACHER = 'pd_teacher_token', K_ADMIN = 'pd_admin_token', K_PHONE = 'pd_phone', K_DATA = 'pd_data';
+  // ===== 機構品牌（每家在 config.js 設定） =====
+  var CFG = window.CONFIG || {};
+  var BRAND = {
+    org: CFG.ORG_NAME || 'phoebe 營養諮詢中心',
+    title: CFG.TITLE || '派案追蹤',
+    logo: CFG.LOGO || 'logo.png',
+    color: CFG.COLOR || '#33665f',
+    accent: CFG.ACCENT || '#7f6c5e'
+  };
+  function mix(hex, to, p) {
+    var a = parseInt(hex.slice(1), 16), b = parseInt(to.slice(1), 16), out = '#';
+    [16, 8, 0].forEach(function (sh) {
+      var x = (a >> sh) & 255, y = (b >> sh) & 255;
+      out += ('0' + Math.round(x + (y - x) * p).toString(16)).slice(-2);
+    });
+    return out;
+  }
+  (function applyBrand() {
+    var ok = /^#[0-9a-f]{6}$/i;
+    if (!ok.test(BRAND.color)) BRAND.color = '#33665f';
+    if (!ok.test(BRAND.accent)) BRAND.accent = '#7f6c5e';
+    var r = document.documentElement.style;
+    r.setProperty('--blue', BRAND.color);
+    r.setProperty('--blue-d', mix(BRAND.color, '#000000', 0.25));
+    r.setProperty('--blue-l', mix(BRAND.color, '#ffffff', 0.86));
+    r.setProperty('--brown', BRAND.accent);
+    r.setProperty('--brown-l', mix(BRAND.accent, '#ffffff', 0.88));
+    document.title = BRAND.org + ' ' + BRAND.title;
+    var m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', BRAND.color);
+    m = document.querySelector('meta[name=apple-mobile-web-app-title]'); if (m) m.setAttribute('content', BRAND.title);
+    var b = document.querySelector('.topbar .brand');
+    if (b) b.innerHTML = '<img src="' + BRAND.logo + '" alt="' + BRAND.org + '"><span>' + BRAND.title + '</span>';
+  })();
+
+  // 同一個網址放多家時，用 ORG 區分登入資料（phoebe 維持原本的名稱，不會被登出）
+  var KP = 'pd_' + (CFG.ORG ? CFG.ORG + '_' : '');
+  var K_TEACHER = KP + 'teacher_token', K_ADMIN = KP + 'admin_token', K_PHONE = KP + 'phone', K_DATA = KP + 'data';
   var adminSession = !!store.get(K_ADMIN, true);
 
   var S = {
@@ -128,7 +164,11 @@
   $modal.addEventListener('click', function (e) { if (e.target === $modal) closeModal(); });
 
   function isAdmin() { return S.data && S.data.user.role === '管理者'; }
-  function rules() { return S.data.rules; }
+  function rules() {
+    var r = S.data.rules || {}, st = S.data.settings || {};
+    return { normal: st.normalDays || r.normal || 7, max: st.maxDays || r.max || 15, range: r.range || 120 };
+  }
+  function overLabel() { return '超過 ' + rules().normal + ' 天原因'; }
   function today() { return nowStr().slice(0, 10); }   // 台灣時間的今天
 
   // ===== 登入 =====
@@ -143,8 +183,8 @@
     var phone = store.get(K_PHONE) || '';
     $app.innerHTML =
       '<form class="login" id="loginForm" autocomplete="off">' +
-      '<img class="logo" src="logo.png" alt="phoebe 營養諮詢中心">' +
-      '<h1>派案進度追蹤</h1><p class="muted small">第一次使用請輸入手機與 4 碼 PIN，PIN 由管理者提供。</p>' +
+      '<img class="logo" src="' + BRAND.logo + '" alt="' + BRAND.org + '">' +
+      '<h1>' + BRAND.title + '</h1><p class="muted small">第一次使用請輸入手機與 4 碼 PIN，PIN 由管理者提供。</p>' +
       '<label for="lp">手機號碼</label><input id="lp" type="tel" inputmode="numeric" placeholder="09xxxxxxxx" value="' + esc(phone) + '">' +
       '<label for="lpin">PIN</label><input id="lpin" class="pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••">' +
       '<button class="btn primary block" type="submit">登入</button>' +
@@ -215,7 +255,7 @@
     },
     saveSettings: function (d, p) {
       d.settings = Object.assign({}, d.settings);
-      Object.keys(p.values).forEach(function (k) { d.settings[k] = Number(p.values[k]); });
+      Object.keys(p.values).forEach(function (k) { d.settings[k] = k === 'closeSystem' ? String(p.values[k]) : Number(p.values[k]); });
     },
     reply: function (d, p) {
       var c = cById(d, p.caseId); setFirst(d, c, p.date, p.reason); c.status = '待服務'; c.repliedAt = nowStr();
@@ -364,7 +404,10 @@
   }
   function elapsed(c) { return diff(c.dispatchDate, today()); }
   // ===== 服務紀錄與規則（和後端同一套規則，畫面上先判斷，不用等伺服器） =====
-  function settings() { return S.data.settings || { maxAhead: 4, monthCap: 3, gapDays: 7, remindDays: 21 }; }
+  function settings() {
+    var d = { maxAhead: 4, monthCap: 3, gapDays: 7, remindDays: 21, normalDays: 7, maxDays: 15, closeSystem: '照管系統' };
+    return Object.assign(d, S.data.settings || {});
+  }
   function liveVisits() { return (S.data.visits || []).filter(function (v) { return v.status !== '已取消'; }); }
   function visitsOf(c) { return liveVisits().filter(function (v) { return v.caseId === c.id; }).sort(function (a, b) { return a.date.localeCompare(b.date); }); }
   function upcomingOf(c) { return visitsOf(c).filter(function (v) { return v.status === '已預約'; }); }
@@ -410,15 +453,88 @@
     var tag = v.status === '已完成' ? '<span class="tag ok">已完成</span>' : (past ? '<span class="tag bad">未回報</span>' : '<span class="tag">已預約</span>');
     var h = '<div class="vrow' + (v.status === '已完成' ? ' done' : '') + '"><span class="vno">' + (v.kind === '舊案' ? '上次服務' : (v.kind === '首次' ? '第 1 次' : '第 ' + n + ' 次')) + '</span>' +
       '<span class="vdate">' + full(v.date) + '</span>' + tag;
-    if (v.status === '已預約') {
-      var b = [];
-      if (v.date <= today()) b.push('<button class="btn sm ok" data-a="vdone" data-vid="' + v.id + '">' + (admin ? '代為回報完成' : '完成') + '</button>');
-      if (!admin && v.kind === '後續') {
-        b.push('<button class="btn sm" data-a="vmove" data-vid="' + v.id + '">改時間</button>');
-        b.push('<button class="btn sm danger" data-a="vcancel" data-vid="' + v.id + '">取消</button>');
-      }
-      if (b.length) h += '<span class="vacts">' + b.join('') + '</span>';
+    return h + visitActs(v, admin) + '</div>';
+  }
+  function visitActs(v, admin) {
+    if (v.status !== '已預約') return '';
+    var b = [];
+    if (v.date <= today()) b.push('<button class="btn sm ok" data-a="vdone" data-vid="' + v.id + '">' + (admin ? '代為回報完成' : '完成') + '</button>');
+    if (!admin && v.kind === '後續') {
+      b.push('<button class="btn sm" data-a="vmove" data-vid="' + v.id + '">改時間</button>');
+      b.push('<button class="btn sm danger" data-a="vcancel" data-vid="' + v.id + '">取消</button>');
     }
+    return b.length ? '<span class="vacts">' + b.join('') + '</span>' : '';
+  }
+  function visitNo(v) {
+    if (v.kind === '舊案') return '上次服務';
+    var c = findCase(v.caseId); if (!c) return '';
+    var n = visitsOf(c).filter(function (x) { return x.kind !== '舊案'; }).map(function (x) { return x.id; }).indexOf(v.id);
+    return n < 0 ? '' : '第 ' + (n + 1) + ' 次';
+  }
+
+  // ===== 行事曆 =====
+  function calState() {
+    if (!S.cal) S.cal = { month: today().slice(0, 7), day: today(), t: '', r: '', s: '' };
+    return S.cal;
+  }
+  function calVisits(admin) {
+    var st = calState(), me = S.data.user.id, cmap = {};
+    S.data.cases.forEach(function (c) { cmap[c.id] = c; });
+    return liveVisits().filter(function (v) {
+      var c = cmap[v.caseId];
+      if (!c) return false;
+      if (!admin) return v.teacherId === me;
+      return (!st.t || v.teacherId === st.t) && (!st.r || c.region === st.r) && (!st.s || v.service === st.s);
+    }).map(function (v) { return { v: v, c: cmap[v.caseId] }; });
+  }
+  function monthShift(m, n) { var y = +m.slice(0, 4), mo = +m.slice(5) - 1 + n; y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12; return y + '-' + ('0' + (mo + 1)).slice(-2); }
+  function calendarView(admin) {
+    var st = calState(), t0 = today(), items = calVisits(admin), byDay = {};
+    items.forEach(function (x) { (byDay[x.v.date] = byDay[x.v.date] || []).push(x); });
+    Object.keys(byDay).forEach(function (d) { byDay[d].sort(function (a, b) { return a.c.caseName.localeCompare(b.c.caseName); }); });
+    var h = '';
+    if (admin) {
+      var o = S.data.options || {};
+      var opt = function (id, list, sel, all) {
+        return '<select id="' + id + '" class="calf"><option value="">' + all + '</option>' + list.map(function (x) {
+          var v = typeof x === 'string' ? x : x.value, t = typeof x === 'string' ? x : x.text;
+          return '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>';
+      };
+      h += '<div class="calfilters">' + opt('calT', teachers().map(function (u) { return { value: u.id, text: u.name }; }), st.t, '全部老師') +
+        opt('calR', o['區域'] || [], st.r, '全部區域') + opt('calS', o['服務碼別'] || [], st.s, '全部服務碼別') + '</div>';
+    }
+    var mi = items.filter(function (x) { return x.v.date.slice(0, 7) === st.month; });
+    var nb = mi.filter(function (x) { return x.v.status === '已預約'; }).length, nd = mi.length - nb;
+    h += '<div class="mhead"><button class="btn sm" data-calm="-1">‹</button><b>' + st.month.slice(0, 4) + ' 年 ' + Number(st.month.slice(5)) + ' 月</b>' +
+      '<button class="btn sm" data-calm="1">›</button><button class="btn sm" data-calm="0">今天</button>' +
+      '<span class="muted small">本月 ' + mi.length + ' 次（已完成 ' + nd + '、已預約 ' + nb + '）</span></div>';
+    var first = st.month + '-01', wd = new Date(ymd(first)).getUTCDay();
+    h += '<div class="mcal">' + WK.map(function (w) { return '<div class="mw">' + w + '</div>'; }).join('');
+    for (var i = 0; i < wd; i++) h += '<div class="mday blank"></div>';
+    for (var ds = first; ds.slice(0, 7) === st.month; ds = addDays(ds, 1)) {
+      var list = byDay[ds] || [];
+      var late = list.filter(function (x) { return x.v.status === '已預約' && x.v.date < t0; }).length;
+      var bk = list.filter(function (x) { return x.v.status === '已預約'; }).length - late, dn = list.length - bk - late;
+      var cls = 'mday' + (ds === t0 ? ' today' : '') + (ds === st.day ? ' sel' : '') + (ds < t0 ? ' past' : '');
+      h += '<button type="button" class="' + cls + '" data-cald="' + ds + '"><span class="mnum">' + Number(ds.slice(8)) + '</span>';
+      if (list.length) {
+        h += '<span class="mcnt">' + (late ? '<i class="late">' + late + '</i>' : '') + (bk ? '<i class="bk">' + bk + '</i>' : '') + (dn ? '<i class="dn">' + dn + '</i>' : '') + '</span>';
+        h += '<span class="mnames">' + list.slice(0, 3).map(function (x) {
+          return '<em class="' + (x.v.status === '已完成' ? 'dn' : (x.v.date < t0 ? 'late' : 'bk')) + '">' + esc(x.c.caseName) + (admin ? '．' + esc(x.v.teacherName) : '') + '</em>';
+        }).join('') + (list.length > 3 ? '<em>…還有 ' + (list.length - 3) + ' 筆</em>' : '') + '</span>';
+      }
+      h += '</button>';
+    }
+    h += '</div><div class="mkey"><span><i class="bk"></i>已預約</span><span><i class="dn"></i>已完成</span><span><i class="late"></i>已過還沒回報</span></div>';
+    var day = byDay[st.day] || [];
+    h += '<div class="mlist"><h3>' + full(st.day) + (st.day === t0 ? ' 今天' : '') + '</h3>';
+    if (!day.length) h += '<div class="empty">這天沒有服務</div>';
+    day.forEach(function (x) {
+      var v = x.v, c = x.c, past = v.status === '已預約' && v.date < t0;
+      var tag = v.status === '已完成' ? '<span class="tag ok">已完成</span>' : (past ? '<span class="tag bad">未回報</span>' : '<span class="tag">已預約</span>');
+      h += '<div class="vrow' + (v.status === '已完成' ? ' done' : '') + '"><span class="mcase"><b>' + esc(c.caseName) + '</b> <span class="muted small">' + esc(v.service) +
+        (c.region ? '．' + esc(c.region) : '') + (admin ? '．' + esc(v.teacherName) : '') + '．' + visitNo(v) + '</span></span>' + tag + visitActs(v, admin) + '</div>';
+    });
     return h + '</div>';
   }
   function visitList(c, admin) {
@@ -471,6 +587,8 @@
       h += '<button class="tab' + (S.tTab === k ? ' on' : '') + '" data-ttab="' + k + '">' + k + '<span class="n' + (alert ? ' alert' : '') + '">' + n + '</span></button>';
     });
     h += '</div>';
+    h = h.replace(/<\/div>$/, '') + '<button class="tab' + (S.tTab === '行事曆' ? ' on' : '') + '" data-ttab="行事曆">行事曆</button></div>';
+    if (S.tTab === '行事曆') { $app.innerHTML = h + calendarView(false); return; }
     var list = groups[S.tTab];
     if (!list.length) h += '<div class="empty">目前沒有' + S.tTab + '的派案</div>';
     list.forEach(function (c) { h += teacherCard(c); });
@@ -493,7 +611,7 @@
       cls = od ? 'bad' : (Number(c.day) > rules().normal ? 'warn' : 'ok');
       h += caseHead(c);
       h += '<div class="row"><b>首次服務日 ' + full(c.firstDate) + '</b> ' + dayTag(c.day) + '</div>';
-      if (c.overReason) h += '<div class="note warn">超過 7 天原因：' + esc(c.overReason) + '</div>';
+      if (c.overReason) h += '<div class="note warn">' + overLabel() + '：' + esc(c.overReason) + '</div>';
       if (od) h += '<div class="note bad">服務日已過，請回報完成；若時間有變動請聯絡管理者。</div>';
       var rj = lastRejected(c);
       if (p) {
@@ -696,7 +814,7 @@
         return '<label class="choice"><input type="radio" name="cr" value="' + esc(t) + '"' + (t === '其它' ? ' data-other="1"' : '') + '><span>' + esc(t) + '</span></label>';
       }).join('') + '</div><div id="cOtherWrap" class="hidden"><textarea id="cOther" placeholder="請寫下結案原因"></textarea></div>' +
       (n ? '<div class="alertbox">結案後，已預約的 ' + n + ' 次服務會自動取消。</div>' : '') +
-      '<div class="note" style="margin-top:12px">結案後，請記得到照管系統登打結案資料。</div>' +
+      '<div class="note" style="margin-top:12px">結案後，請記得到' + esc(settings().closeSystem) + '登打結案資料。</div>' +
       '<div class="foot"><button class="btn" data-close>取消</button><button class="btn danger" id="cOk" disabled>確定結案</button></div>');
     var okb = document.getElementById('cOk'), other = document.getElementById('cOther'), ow = document.getElementById('cOtherWrap');
     function val() {
@@ -713,7 +831,7 @@
     okb.onclick = function () {
       act('closeCase', { caseId: c.id, reason: val() }, null, true);
       openModal('<h2>已結案</h2><p>「' + esc(c.caseName) + '」' + esc(c.service) + ' 已結案。</p>' +
-        '<div class="alertbox">請記得到<b>照管系統</b>登打結案資料。</div>' +
+        '<div class="alertbox">請記得到<b>' + esc(settings().closeSystem) + '</b>登打結案資料。</div>' +
         '<div class="foot"><button class="btn primary" data-close>我知道了</button></div>');
     };
   }
@@ -755,13 +873,14 @@
   }
 
   function renderAdmin() {
-    var navs = ['派案', '建立派案', '個案', '帳號', '選項'];
+    var navs = ['派案', '行事曆', '建立派案', '個案', '帳號', '選項'];
     var h = '<div class="nav">';
     navs.forEach(function (n) { h += '<button data-nav="' + n + '" class="' + (S.nav === n ? 'on' : '') + '">' + n + '</button>'; });
     h += '</div>';
     if (S.nav === '派案') h += adminCases();
     else if (S.nav === '建立派案') h += caseForm(null);
     else if (S.nav === '個案') h += clientsView();
+    else if (S.nav === '行事曆') h += calendarView(true);
     else if (S.nav === '帳號') h += usersView();
     else h += optionsView();
     $app.innerHTML = h;
@@ -812,7 +931,7 @@
     };
     list.sort(sorters[S.filter] || function (a, b) { return (b.updatedAt || '').localeCompare(a.updatedAt || ''); });
 
-    if (S.filter === '異常通報') h += '<div class="muted small" style="margin-bottom:8px">兩種需要處理的派案：<b>逾 7 天</b>（首次服務落在第 ' + (rules().normal + 1) + '～' + rules().max +
+    if (S.filter === '異常通報') h += '<div class="muted small" style="margin-bottom:8px">兩種需要處理的派案：<b>逾 ' + rules().normal + ' 天</b>（首次服務落在第 ' + (rules().normal + 1) + '～' + rules().max +
       ' 天，完成通報後打勾）；<b>個案無法服務</b>（先協調，協調成功就改派，協調不成就通報後取消）。紅色數字是還沒處理完的筆數。</div>';
     if (!list.length) h += '<div class="empty">沒有資料</div>';
     list.forEach(function (c) { h += adminCard(c); });
@@ -824,7 +943,7 @@
     var p = pendingOf(c);
     var st = '<span class="tag ' + ({ '待回覆': 'warn', '待服務': '', '服務中': 'ok', '已結案': 'gray', '無法服務': 'bad', '已取消': 'gray' }[c.status] || '') + '">' + (c.status === '無法服務' ? '個案無法服務' : c.status) + '</span>' +
       (c.status === '已結案' && (c.closeSeen !== 'Y' || (S.fresh && S.fresh[c.id])) ? ' <span class="tag bad">新</span>' : '');
-    if (inReport(c)) st += ' <span class="tag warn">逾 7 天</span>';
+    if (inReport(c)) st += ' <span class="tag warn">逾 ' + rules().normal + ' 天</span>';
     if (failedCase(c)) st += ' <span class="tag bad">協調不成</span>';
     h = h.replace('</h3>', ' ' + st + (Number(c.reassignCount) > 0 ? ' <span class="tag gray">改派 ' + c.reassignCount + ' 次</span>' : '') + '</h3>');
     var acts = [];
@@ -851,7 +970,7 @@
       var od = overdueUnreported(c);
       cls = od ? 'bad' : (Number(c.day) > rules().normal ? 'warn' : '');
       h += '<div class="row"><b>首次服務日 ' + full(c.firstDate) + '</b> ' + dayTag(c.day) + '</div>';
-      if (c.overReason) h += '<div class="note warn">超過 7 天原因：' + esc(c.overReason) + '</div>';
+      if (c.overReason) h += '<div class="note warn">' + overLabel() + '：' + esc(c.overReason) + '</div>';
       if (od) h += '<div class="note bad">服務日已過，老師尚未回報完成</div>';
       if (c.status === '待服務') {
         if (p) {
@@ -927,7 +1046,7 @@
     h += '</div>';
     if (!c) {
       h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="fLegacy"' + (dr.legacy ? ' checked' : '') + '> 舊案帶入（已經在服務中的個案）</label>' +
-        '<div id="fLegacyBox"' + (dr.legacy ? '' : ' class="hidden"') + '><div class="muted small">舊案直接進「服務中」，不用老師回覆第一次服務，也不看 7 天、15 天的規定。老師之後用「預約下一次」排服務。</div>' +
+        '<div id="fLegacyBox"' + (dr.legacy ? '' : ' class="hidden"') + '><div class="muted small">舊案直接進「服務中」，不用老師回覆第一次服務，也不看第一次服務的天數規定。老師之後用「預約下一次」排服務。</div>' +
         '<label for="fLast">上次服務日（必填）</label><input id="fLast" type="date" max="' + today() + '" value="' + esc(dr.lastDate || '') + '"></div>';
     }
     h += '<label for="fNote">備註</label><textarea id="fNote">' + esc(src.note || '') + '</textarea>';
@@ -1049,6 +1168,7 @@
 
   var SETTING_LABELS = { maxAhead: ['一次最多預約幾次', '次'], monthCap: ['同個案同服務碼別，每月最多', '次'],
     gapDays: ['同個案同服務碼別，間隔至少', '天'], remindDays: ['最後一次服務後幾天沒約下一次，就提醒', '天'] };
+  var FIRST_LABELS = { normalDays: ['第一次服務在派案後幾天內算正常', '天'], maxDays: ['第一次服務最遲在派案後第幾天', '天'] };
   function optionsView() {
     var o = S.data.options, st = settings();
     var h = '<div class="form" style="margin-bottom:12px"><b>預約規則</b><div class="muted small">所有老師一起算，第一次服務也算在內。提醒天數前 7 天會先出現黃色提醒。</div><div class="grid2">';
@@ -1056,18 +1176,31 @@
       h += '<div><label for="set_' + k + '">' + SETTING_LABELS[k][0] + '（' + SETTING_LABELS[k][1] + '）</label><input id="set_' + k + '" type="number" inputmode="numeric" value="' + st[k] + '"></div>';
     });
     h += '</div><button class="btn primary" style="margin-top:8px" data-a="saveSet">儲存預約規則</button></div>';
+    h += '<div class="form" style="margin-bottom:12px"><b>第一次服務與結案</b><div class="muted small">派案當天算第 0 天。超過正常天數要選原因，並列入異常通報；超過最遲天數就不能選日期。</div><div class="grid2">';
+    Object.keys(FIRST_LABELS).forEach(function (k) {
+      h += '<div><label for="set_' + k + '">' + FIRST_LABELS[k][0] + '（' + FIRST_LABELS[k][1] + '）</label><input id="set_' + k + '" type="number" inputmode="numeric" value="' + st[k] + '"></div>';
+    });
+    h += '<div><label for="set_closeSystem">結案後提醒老師登打的系統名稱</label><input id="set_closeSystem" type="text" maxlength="30" value="' + esc(st.closeSystem) + '"></div>';
+    h += '</div><button class="btn primary" style="margin-top:8px" data-a="saveSet2">儲存</button></div>';
     ['服務碼別', '區域', '超過7天原因', '結案原因', '異常通報原因'].forEach(function (cat) {
-      var hint = cat === '超過7天原因' ? '老師選到第 8 天以後時的常用原因，一行一個。「其他」會自動排在最後，不用寫。全部清空會恢復預設。' :
+      var hint = cat === '超過7天原因' ? '老師選到第 ' + (rules().normal + 1) + ' 天以後時的常用原因，一行一個。「其他」會自動排在最後，不用寫。全部清空會恢復預設。' :
         (cat === '結案原因' ? '老師結案時的原因，一行一個。「其它」會自動排在最後（選其它要自己寫），不用寫。全部清空會恢復預設。' :
         (cat === '異常通報原因' ? '老師按「異常通報」時的原因，一行一個。「其他」會自動排在最後（選其他要自己寫），不用寫。全部清空會恢復預設。' : '一行一個，順序就是下拉選單的順序'));
-      h += '<div class="form" style="margin-bottom:12px"><b>' + cat + '</b><div class="muted small">' + hint + '</div>' +
+      var label = cat === '超過7天原因' ? overLabel() : cat;
+      h += '<div class="form" style="margin-bottom:12px"><b>' + label + '</b><div class="muted small">' + hint + '</div>' +
         '<textarea data-cat="' + cat + '" style="min-height:140px">' + esc((o[cat] || []).join('\n')) + '</textarea>' +
-        '<button class="btn primary" style="margin-top:8px" data-a="saveOpt" data-cat="' + cat + '">儲存' + cat + '</button></div>';
+        '<button class="btn primary" style="margin-top:8px" data-a="saveOpt" data-cat="' + cat + '">儲存' + label + '</button></div>';
     });
     return h;
   }
 
   // ===== 事件 =====
+  document.addEventListener('change', function (e) {
+    var f = e.target.closest && e.target.closest('.calf');
+    if (!f) return;
+    calState()[{ calT: 't', calR: 'r', calS: 's' }[f.id]] = f.value;
+    render();
+  });
   document.addEventListener('click', function (e) {
     var t = e.target;
     if (t.closest('[data-close]')) { closeModal(); return; }
@@ -1075,6 +1208,15 @@
     if (tab) { S.tTab = tab.getAttribute('data-ttab'); render(); return; }
     var fl = t.closest('[data-filter]');
     if (fl) { S.filter = fl.getAttribute('data-filter'); render(); return; }
+    var cm = t.closest('[data-calm]');
+    if (cm) {
+      var cs0 = calState(), mv = Number(cm.getAttribute('data-calm'));
+      if (mv) { cs0.month = monthShift(cs0.month, mv); cs0.day = cs0.month === today().slice(0, 7) ? today() : cs0.month + '-01'; }
+      else { cs0.month = today().slice(0, 7); cs0.day = today(); }
+      render(); return;
+    }
+    var cdy = t.closest('[data-cald]');
+    if (cdy) { calState().day = cdy.getAttribute('data-cald'); render(); return; }
     var nv = t.closest('[data-nav]');
     if (nv) { S.nav = nv.getAttribute('data-nav'); render(); return; }
 
@@ -1144,7 +1286,7 @@
         break;
       case 'toLegacy':
         openModal('<h2>轉為舊案</h2><div class="muted small">' + esc(c.caseName) + '．' + esc(c.service) + '．派案日 ' + full(c.dispatchDate) + '</div>' +
-          '<p class="small">已經在服務中的個案，轉成舊案後直接進「服務中」，老師之後用「預約下一次」排服務，不看 7 天、15 天的規定。</p>' +
+          '<p class="small">已經在服務中的個案，轉成舊案後直接進「服務中」，老師之後用「預約下一次」排服務，不看第一次服務的天數規定。</p>' +
           '<label for="lgD">上次服務日（必填）</label><input id="lgD" type="date" min="' + c.dispatchDate + '" max="' + today() + '">' +
           '<div class="foot"><button class="btn" data-close>取消</button><button class="btn primary" id="lgOk">轉為舊案</button></div>');
         document.getElementById('lgOk').onclick = function () {
@@ -1209,6 +1351,19 @@
         });
         if (bad) return toast(bad + '請填正整數', true);
         act('saveSettings', { values: vals }, '已儲存預約規則', true);
+        break;
+      case 'saveSet2':
+        var v2 = {}, bad2 = '';
+        Object.keys(FIRST_LABELS).forEach(function (k) {
+          var n = Number(document.getElementById('set_' + k).value);
+          if (!(n % 1 === 0) || n < 1) bad2 = FIRST_LABELS[k][0];
+          v2[k] = n;
+        });
+        if (bad2) return toast(bad2 + '請填正整數', true);
+        if (v2.maxDays <= v2.normalDays) return toast('最遲天數要大於正常天數', true);
+        v2.closeSystem = document.getElementById('set_closeSystem').value.trim();
+        if (!v2.closeSystem) return toast('請填寫系統名稱', true);
+        act('saveSettings', { values: v2 }, '已儲存', true);
         break;
       case 'saveOpt':
         var cat = b.getAttribute('data-cat');
