@@ -186,6 +186,11 @@
   function cancelBookedLocal(d, caseId) {
     (d.visits || []).forEach(function (v) { if (v.caseId === caseId && v.status === '已預約') v.status = '已取消'; });
   }
+  function legacyLocal(d, c, last) {
+    c.status = '服務中'; c.legacy = 'Y'; c.updatedAt = nowStr();
+    newVisitLocal(d, c, last, '舊案');
+    var v = d.visits[d.visits.length - 1]; v.status = '已完成'; v.doneAt = nowStr();
+  }
   function vById(d, id) { return (d.visits || []).filter(function (v) { return v.id === id; })[0]; }
   var LOCAL = {
     bookVisit: function (d, p) { newVisitLocal(d, cById(d, p.caseId), p.date, '後續'); },
@@ -272,7 +277,9 @@
       d.cases.push({ id: 'tmp-' + Date.now(), clientId: f.clientId, caseNo: cl.careNo || '', caseName: cl.name || '', service: f.service, region: f.region || cl.region || '',
         dispatchDate: f.dispatchDate, teacherId: t.id, teacherName: t.name, note: f.note, status: '待回覆', reassignCount: '0',
         firstDate: '', day: '', createdAt: nowStr(), updatedAt: nowStr() });
+      if (f.legacy) legacyLocal(d, d.cases[d.cases.length - 1], f.lastDate);
     },
+    convertLegacy: function (d, p) { legacyLocal(d, cById(d, p.caseId), p.lastDate); },
     updateUser: function (d, p) {
       var u = d.users.filter(function (x) { return x.id === p.id; })[0];
       u.name = p.name.trim(); u.phone = p.phone.replace(/\D/g, ''); u.role = p.role; u.active = !!p.active;
@@ -401,7 +408,7 @@
   function visitRow(v, n, admin) {
     var past = v.status === '已預約' && v.date < today();
     var tag = v.status === '已完成' ? '<span class="tag ok">已完成</span>' : (past ? '<span class="tag bad">未回報</span>' : '<span class="tag">已預約</span>');
-    var h = '<div class="vrow' + (v.status === '已完成' ? ' done' : '') + '"><span class="vno">' + (v.kind === '首次' ? '第 1 次' : '第 ' + n + ' 次') + '</span>' +
+    var h = '<div class="vrow' + (v.status === '已完成' ? ' done' : '') + '"><span class="vno">' + (v.kind === '舊案' ? '上次服務' : (v.kind === '首次' ? '第 1 次' : '第 ' + n + ' 次')) + '</span>' +
       '<span class="vdate">' + full(v.date) + '</span>' + tag;
     if (v.status === '已預約') {
       var b = [];
@@ -417,7 +424,8 @@
   function visitList(c, admin) {
     var vs = visitsOf(c);
     if (!vs.length) return '';
-    return '<div class="visits">' + vs.map(function (v, i) { return visitRow(v, i + 1, admin); }).join('') + '</div>';
+    var n = 0;
+    return '<div class="visits">' + vs.map(function (v) { if (v.kind !== '舊案') n++; return visitRow(v, n, admin); }).join('') + '</div>';
   }
   function remindNote(c) {
     var lv = remindLevel(c);
@@ -427,7 +435,8 @@
   }
 
   function caseHead(c, showTeacher) {
-    var h = '<h3>' + esc(c.caseName) + (c.caseNo ? ' <span class="muted small">' + esc(c.caseNo) + '</span>' : '') + '</h3>';
+    var h = '<h3>' + esc(c.caseName) + (c.caseNo ? ' <span class="muted small">' + esc(c.caseNo) + '</span>' : '') +
+      (c.legacy === 'Y' ? ' <span class="tag gray">舊案</span>' : '') + '</h3>';
     h += '<div class="meta">' + esc(c.service) + (c.region ? '．' + esc(c.region) : '') +
       (showTeacher ? '．老師：' + esc(c.teacherName) : '') + '</div>';
     var showDay = c.status === '待回覆' || c.status === '無法服務';
@@ -825,6 +834,7 @@
       if (e > rules().max) { cls = 'bad'; h += '<div class="note bad">已過 ' + rules().max + ' 天仍未回覆</div>'; }
       else if (e > rules().normal) { cls = 'warn'; h += '<div class="note warn">已過 ' + rules().normal + ' 天仍未回覆</div>'; }
       acts.push('reassign', 'edit', 'cancel');
+      if (e > rules().normal) acts.push('toLegacy');
     } else if (c.status === '服務中' || c.status === '已結案') {
       var odv = overdueVisits(c).length, lv = remindLevel(c);
       cls = odv || lv === 2 ? 'bad' : (lv === 1 ? 'warn' : (c.status === '服務中' ? 'ok' : ''));
@@ -870,7 +880,7 @@
     var labels = {
       approve: ['primary', '核准'], reject: ['danger', '駁回'], complete: ['ok', '代為回報完成'],
       reassign: ['', '改派'], edit: ['', '修改'], cancel: ['danger', '取消派案'], copy: ['', '複製通報資料'],
-      okReassign: ['primary', '協調成功：改派'], failCancel: ['danger', '協調不成：通報並取消'], copyAb: ['', '複製通報資料']
+      okReassign: ['primary', '協調成功：改派'], toLegacy: ['', '轉為舊案'], failCancel: ['danger', '協調不成：通報並取消'], copyAb: ['', '複製通報資料']
     };
     if (acts.length) {
       h += '<div class="acts">' + acts.map(function (a) {
@@ -914,7 +924,13 @@
       '<div><label for="fReg">區域</label>' + selectHtml('fReg', o['區域'] || [], src.region || '', '依個案資料') + '</div>' +
       '<div><label for="fDate">派案日期（必填）</label><input id="fDate" type="date" max="' + today() + '" value="' + (src.dispatchDate || today()) + '"' + (lock ? ' disabled' : '') + '></div>';
     if (!c) h += '<div><label for="fT">指派老師（必填）</label>' + selectHtml('fT', tlist, dr.teacherId || '', tlist.length ? '請選擇' : '尚無老師帳號') + '</div>';
-    h += '</div><label for="fNote">備註</label><textarea id="fNote">' + esc(src.note || '') + '</textarea>';
+    h += '</div>';
+    if (!c) {
+      h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="fLegacy"' + (dr.legacy ? ' checked' : '') + '> 舊案帶入（已經在服務中的個案）</label>' +
+        '<div id="fLegacyBox"' + (dr.legacy ? '' : ' class="hidden"') + '><div class="muted small">舊案直接進「服務中」，不用老師回覆第一次服務，也不看 7 天、15 天的規定。老師之後用「預約下一次」排服務。</div>' +
+        '<label for="fLast">上次服務日（必填）</label><input id="fLast" type="date" max="' + today() + '" value="' + esc(dr.lastDate || '') + '"></div>';
+    }
+    h += '<label for="fNote">備註</label><textarea id="fNote">' + esc(src.note || '') + '</textarea>';
     if (c) h += '<div class="foot"><button class="btn" data-close>取消</button><button class="btn primary" id="fSave">儲存</button></div>';
     else h += '<button class="btn primary block" id="fSave">建立派案</button>';
     return h + '</div>';
@@ -922,11 +938,19 @@
 
   function caseFormValues() {
     var v = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
-    return { clientId: v('fClient'), service: v('fSvc'), region: v('fReg'), dispatchDate: v('fDate'), note: v('fNote'), teacherId: v('fT') };
+    var lg = document.getElementById('fLegacy');
+    return { clientId: v('fClient'), service: v('fSvc'), region: v('fReg'), dispatchDate: v('fDate'), note: v('fNote'), teacherId: v('fT'),
+      legacy: !!(lg && lg.checked), lastDate: v('fLast') };
   }
   function bindCaseForm(c) {
     var cq = document.getElementById('fCq'), sel = document.getElementById('fClient');
     if (cq) cq.oninput = function () { sel.innerHTML = clientOptions(cq.value, sel.value); };
+    var lg = document.getElementById('fLegacy');
+    if (lg) lg.onchange = function () {
+      document.getElementById('fLegacyBox').classList.toggle('hidden', !lg.checked);
+      document.getElementById('fSave').textContent = lg.checked ? '帶入舊案' : '建立派案';
+    };
+    if (lg && lg.checked) document.getElementById('fSave').textContent = '帶入舊案';
     document.getElementById('fSave').onclick = function () {
       var fields = caseFormValues();
       if (!fields.clientId) return toast('請選擇個案；找不到請按「新增個案」', true);
@@ -937,9 +961,14 @@
         act('updateCase', { caseId: c.id, fields: fields }, '已儲存', true);
       } else {
         if (!fields.teacherId) return toast('請選擇指派老師', true);
+        if (fields.legacy) {
+          if (!fields.lastDate) return toast('請填寫上次服務日', true);
+          if (fields.lastDate > today()) return toast('上次服務日不能是未來的日期', true);
+          if (fields.lastDate < fields.dispatchDate) return toast('上次服務日不能早於派案日期', true);
+        } else { delete fields.legacy; delete fields.lastDate; }
         S.caseDraft = null;
-        S.nav = '派案'; S.filter = '待回覆';
-        act('createCase', { fields: fields }, '已建立派案', true);
+        S.nav = '派案'; S.filter = fields.legacy ? '服務中' : '待回覆';
+        act('createCase', { fields: fields }, fields.legacy ? '已帶入舊案' : '已建立派案', true);
       }
     };
   }
@@ -1112,6 +1141,19 @@
         var fcChk = function () { fcOk.disabled = !(fcN.checked && fcR.value.trim()); };
         fcN.onchange = fcChk; fcR.oninput = fcChk;
         fcOk.onclick = function () { act('cancelCase', { caseId: c.id, reason: fcR.value.trim(), notified: true }, '已通報並取消', true); };
+        break;
+      case 'toLegacy':
+        openModal('<h2>轉為舊案</h2><div class="muted small">' + esc(c.caseName) + '．' + esc(c.service) + '．派案日 ' + full(c.dispatchDate) + '</div>' +
+          '<p class="small">已經在服務中的個案，轉成舊案後直接進「服務中」，老師之後用「預約下一次」排服務，不看 7 天、15 天的規定。</p>' +
+          '<label for="lgD">上次服務日（必填）</label><input id="lgD" type="date" min="' + c.dispatchDate + '" max="' + today() + '">' +
+          '<div class="foot"><button class="btn" data-close>取消</button><button class="btn primary" id="lgOk">轉為舊案</button></div>');
+        document.getElementById('lgOk').onclick = function () {
+          var d = document.getElementById('lgD').value;
+          if (!d) return toast('請填寫上次服務日', true);
+          if (d > today()) return toast('上次服務日不能是未來的日期', true);
+          if (d < c.dispatchDate) return toast('上次服務日不能早於派案日期', true);
+          act('convertLegacy', { caseId: c.id, lastDate: d }, '已轉為舊案', true);
+        };
         break;
       case 'copyAb':
         copyText([c.caseNo, c.caseName, c.service, '派案日 ' + c.dispatchDate, '老師 ' + c.teacherName, '個案無法服務：' + c.cannotReason].join('\t'));
